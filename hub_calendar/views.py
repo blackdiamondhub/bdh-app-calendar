@@ -68,9 +68,9 @@ def api_events(request):
         return _bad("start and end dates are required")
     if end <= start or (end - start).days > MAX_RANGE_DAYS:
         return _bad("bad date range")
-    cal.purge_expired()
-    cal.kick_refresh()
     viewer = cal.Viewer(request)
+    cal.purge_expired(viewer.current_stay_key)
+    cal.kick_refresh()
     feeds = list(Feed.objects.filter(enabled=True).prefetch_related("people"))
     events = cal.occurrences(datetime.combine(start, time()), datetime.combine(end, time()),
                              viewer, feeds)

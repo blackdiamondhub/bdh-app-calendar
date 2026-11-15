@@ -13,7 +13,6 @@ from bdh_sdk.auth import is_admin
 from bdh_sdk.location import location as hub_location
 from bdh_sdk.settings import app_setting
 from dateutil import rrule
-from django.conf import settings
 from django.core.cache import cache
 from django.db import close_old_connections
 from django.utils import timezone
@@ -33,7 +32,7 @@ REFRESH_LOCK = "hub_calendar:refreshing"
 
 def site_tz():
     where = hub_location()
-    name = (where.timezone if where else "") or settings.TIME_ZONE
+    name = (where.timezone if where else "") or timezone.get_default_timezone_name()
     try:
         return ZoneInfo(name)
     except Exception:
@@ -61,6 +60,7 @@ def iso(dt):
 # ---- who is looking ------------------------------------------------------
 
 def _current_stay(request):
+    """The stay in progress, from the hub itself (running in-process only)."""
     try:
         from hub.modes import current_stay
     except ImportError:  # running outside the hub
@@ -84,10 +84,21 @@ class Viewer:
     Guests (a stay is in progress and nobody is signed in) only change the
     events they added during their stay; those events are deleted at checkout.
     Everyone else changes any event added on the hub. Feed events are read-only.
+
+    In its own container the app learns this from the hub's signed identity
+    (``request.bdh_mode`` / ``request.bdh_stay_key``), which carries the stay's
+    key but not its guest name or dates (:attr:`stay` is then None).
     """
 
     def __init__(self, request):
         self.admin = is_admin(request)
+        self.stay = None
+        if hasattr(request, "bdh_mode"):
+            key = getattr(request, "bdh_stay_key", "") or ""
+            self.current_stay_key = key
+            self.guest = request.bdh_mode == "guest" and bool(key)
+            self.stay_key = key if self.guest else ""
+            return
         stay = None
         if not request.user.is_authenticated:
             stay = _current_stay(request)
@@ -96,6 +107,7 @@ class Viewer:
         self.stay = stay
         self.guest = stay is not None
         self.stay_key = stay_key(stay) if stay else ""
+        self.current_stay_key = ""
 
     def can_edit(self, event):
         if not self.guest:
@@ -106,16 +118,22 @@ class Viewer:
         """Ownership fields for an event created now."""
         if not self.guest:
             return {"stay_key": "", "expires_at": None}
-        checkout = self.stay.get("checkout")
+        checkout = self.stay.get("checkout") if self.stay else None
         if checkout is not None and timezone.is_naive(checkout):
             checkout = from_local(checkout)
         return {"stay_key": self.stay_key,
                 "expires_at": checkout or timezone.now() + GUEST_EVENT_TTL}
 
 
-def purge_expired():
-    """Delete events guests added once their stay is over."""
+def purge_expired(current_stay_key=""):
+    """Delete events guests added once their stay is over.
+
+    ``current_stay_key`` is the stay in progress as the hub reports it: when the
+    checkout time isn't known, guest events of any other stay are over too.
+    """
     Event.objects.filter(expires_at__isnull=False, expires_at__lte=timezone.now()).delete()
+    if current_stay_key:
+        Event.objects.exclude(stay_key="").exclude(stay_key=current_stay_key).delete()
 
 
 # ---- feeds ----------------------------------------------------------------

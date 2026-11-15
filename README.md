@@ -4,6 +4,9 @@ A family calendar app for [Black Diamond Hub](https://github.com/blackdiamondlod
 It merges any number of iCal subscriptions (school calendars, Google, iCloud …)
 with events added right on the hub.
 
+Since 2.0 it runs in its own container (hub_api 2): it reads its settings and
+the current stay from the hub, and needs outbound network access for the feeds.
+
 ## Features
 
 - **Month, week and agenda views.** The week view covers the full 24 hours;
