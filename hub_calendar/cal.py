@@ -27,6 +27,11 @@ MAX_ICS_BYTES = 8 * 1024 * 1024
 FETCH_TIMEOUT = 15
 REFRESH_LOCK = "hub_calendar:refreshing"
 
+# Parsed feeds, shared by request threads and the refresh thread. Parses are
+# serialized so a large feed is never held in memory more than once.
+_parsed = {}  # feed id -> (fetched_at, calendar)
+_parse_lock = threading.Lock()
+
 
 # ---- time ---------------------------------------------------------------
 
@@ -177,7 +182,10 @@ def refresh_feed(feed):
     feed.last_attempt = timezone.now()
     try:
         text = fetch_ics(feed.url)
-        parse_ics(text)
+        with _parse_lock:
+            # A big feed parses to ~30 MB; drop the old copy first so two never coexist.
+            _parsed.pop(feed.id, None)
+            parsed = parse_ics(text)
     except Exception as exc:
         feed.last_error = (str(exc) or exc.__class__.__name__)[:300]
         feed.save(update_fields=["last_attempt", "last_error"])
@@ -187,6 +195,7 @@ def refresh_feed(feed):
     feed.fetched_at = feed.last_attempt
     feed.last_error = ""
     feed.save(update_fields=["ics", "fetched_at", "last_attempt", "last_error"])
+    _parsed[feed.id] = (feed.fetched_at, parsed)
     return True
 
 
@@ -224,20 +233,22 @@ def kick_refresh():
     return True
 
 
-_parsed = {}  # feed id -> (fetched_at, calendar)
-
-
 def _feed_calendar(feed):
     hit = _parsed.get(feed.id)
     if hit and hit[0] == feed.fetched_at:
         return hit[1]
-    try:
-        cal = parse_ics(feed.ics)
-    except Exception:
-        log.exception("calendar feed %s cached copy is unreadable", feed.name)
-        return None
-    _parsed[feed.id] = (feed.fetched_at, cal)
-    return cal
+    with _parse_lock:
+        hit = _parsed.get(feed.id)
+        if hit and hit[0] == feed.fetched_at:
+            return hit[1]
+        _parsed.pop(feed.id, None)
+        try:
+            cal = parse_ics(feed.ics)
+        except Exception:
+            log.exception("calendar feed %s cached copy is unreadable", feed.name)
+            return None
+        _parsed[feed.id] = (feed.fetched_at, cal)
+        return cal
 
 
 def _local(value, tz):
