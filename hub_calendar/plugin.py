@@ -41,5 +41,7 @@ spec = PluginSpec(
     network=NETWORK_OUTBOUND,
     # Feeds are refreshed when the page or the hub's status hook asks.
     lifecycle=LIFECYCLE_ON_DEMAND,
-    memory_mb=96,
+    # A parsed feed takes ~15x its size (a 2 MB Google feed is ~40 MB) and a
+    # refresh parses the new copy while the old one is cached.
+    memory_mb=192,
 )
