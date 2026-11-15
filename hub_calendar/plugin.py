@@ -1,5 +1,5 @@
 from bdh_sdk import PluginSpec, Setting, SettingsPage, Tile
-from bdh_sdk.plugins import CHOICE, INT
+from bdh_sdk.plugins import CHOICE, INT, LIFECYCLE_ON_DEMAND, NETWORK_OUTBOUND
 
 spec = PluginSpec(
     id="hub_calendar",
@@ -34,4 +34,12 @@ spec = PluginSpec(
         SettingsPage("People", "hub_calendar_people",
                      subtitle="Who events can be tagged with", icon="fas fa-user-tag"),
     ),
+    api_version=2,
+    # Only its own settings; the stay comes with the hub's identity headers.
+    permissions=(),
+    # Fetches the iCal feeds (school, Google, iCloud).
+    network=NETWORK_OUTBOUND,
+    # Feeds are refreshed when the page or the hub's status hook asks.
+    lifecycle=LIFECYCLE_ON_DEMAND,
+    memory_mb=96,
 )

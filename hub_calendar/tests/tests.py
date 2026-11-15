@@ -307,3 +307,72 @@ class SiteTzTests(TestCase):
         with patch.object(cal, "hub_location", return_value=None):
             self.assertEqual(str(cal.site_tz()), "America/Toronto")
 
+
+class ContainerViewerTests(TestCase):
+    """In its own container the hub's signed identity says who is looking."""
+
+    def request(self, mode, stay_key):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+        req = RequestFactory().get("/calendar/")
+        req.user = AnonymousUser()
+        req.bdh_mode, req.bdh_stay_key = mode, stay_key
+        return req
+
+    def test_guest_owns_events_of_their_stay(self):
+        with patch.object(cal, "_current_stay") as hub_stay:
+            viewer = cal.Viewer(self.request("guest", "k1"))
+        hub_stay.assert_not_called()
+        self.assertTrue(viewer.guest)
+        fields = viewer.new_event_fields()
+        self.assertEqual(fields["stay_key"], "k1")
+        self.assertGreater(fields["expires_at"], timezone.now() + timedelta(days=13))
+        now = timezone.now()
+        self.assertTrue(viewer.can_edit(Event(title="a", start=now, end=now, stay_key="k1")))
+        self.assertFalse(viewer.can_edit(Event(title="b", start=now, end=now, stay_key="k2")))
+        self.assertFalse(viewer.can_edit(Event(title="c", start=now, end=now)))
+
+    def test_dashboard_and_owner_are_not_guests(self):
+        for mode, key in (("dashboard", ""), ("owner", "k1"), ("guest", "")):
+            viewer = cal.Viewer(self.request(mode, key))
+            self.assertFalse(viewer.guest, mode)
+            self.assertEqual(viewer.new_event_fields(), {"stay_key": "", "expires_at": None})
+        self.assertEqual(cal.Viewer(self.request("owner", "k1")).current_stay_key, "k1")
+
+    def test_other_stays_events_are_purged(self):
+        now = timezone.now()
+        later = now + timedelta(days=3)
+        for title, key in (("Old stay", "k1"), ("This stay", "k2"), ("Hub", "")):
+            Event.objects.create(title=title, start=now, end=now, stay_key=key,
+                                 expires_at=later if key else None)
+        cal.purge_expired()
+        self.assertEqual(Event.objects.count(), 3)
+        cal.purge_expired("k2")
+        self.assertEqual(sorted(Event.objects.values_list("title", flat=True)), ["Hub", "This stay"])
+
+
+@override_settings(HUB_LOCATION=TZ)
+class BrokerTests(TestCase):
+    """The app with ``bdh_sdk.rpc`` pointed at a fake hub broker."""
+
+    def setUp(self):
+        from bdh_sdk import settings, storage
+        from bdh_sdk.testing import FakeBroker
+
+        saved = (settings._store, storage._backend)
+
+        def restore():
+            settings.set_store(saved[0])
+            storage.set_state_backend(saved[1])
+        self.broker = FakeBroker(grants=("settings.*", "state.*"), install=True)
+        self.broker.start()
+        self.addCleanup(restore)
+        self.addCleanup(self.broker.stop)
+
+    def test_page_reads_settings_from_the_hub(self):
+        self.broker.settings.update({("hub_calendar", "default_view"): "agenda",
+                                     ("hub_calendar", "week_start"): "mon"})
+        r = self.client.get(reverse("hub_calendar"))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual((r.context["config"]["view"], r.context["config"]["weekStart"]), ("agenda", 1))
+        self.assertIn({"app": "hub_calendar", "key": "default_view"}, self.broker.ops("settings.get"))
