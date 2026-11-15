@@ -291,6 +291,19 @@ class StatusTests(TestCase):
         self.assertEqual([(r.title, r.dimmed) for r in s.rows], [("Dinner", False), ("Ski", True)])
         self.assertEqual(s.rows[1].detail, "Tomorrow · all day")
 
+    def test_feed_rows_survive_the_hub_status_check(self):
+        from bdh_sdk.hooks import status_value
+
+        tomorrow = cal.now_local().date() + timedelta(days=1)
+        feed = Feed.objects.create(name="School", url="https://example.org/s.ics", ics=(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:abc@google.com\r\n"
+            f"DTSTART;VALUE=DATE:{tomorrow:%Y%m%d}\r\nSUMMARY:Field trip\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"), fetched_at=timezone.now())
+        self.assertTrue(feed.ics)
+        with patch.object(cal, "kick_refresh", return_value=False):
+            value = status_value(homepage.status())
+        self.assertEqual([r["title"] for r in value["rows"]], ["Field trip"])
+
     def test_empty(self):
         with patch.object(cal, "kick_refresh", return_value=False):
             self.assertEqual(homepage.status().text, "Nothing this week")

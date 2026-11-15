@@ -1,4 +1,5 @@
 """Homepage tile: what's on today and next."""
+import hashlib
 import logging
 from datetime import datetime, time, timedelta
 
@@ -38,6 +39,11 @@ def _when(o, today):
     return f"{label} · {hour}{minute} {s:%p}"
 
 
+def _row_id(occurrence_id):
+    # Status row ids must be slugs; occurrence ids carry ':' and iCal UIDs ('@').
+    return hashlib.sha1(occurrence_id.encode()).hexdigest()[:16]
+
+
 def status(mode=None):
     try:
         cal.purge_expired()
@@ -55,7 +61,7 @@ def status(mode=None):
                 if (o["all_day"] and o["end"][:10] > today.isoformat())
                 or (not o["all_day"] and datetime.fromisoformat(o["end"]) > now)]
     rows = tuple(
-        StatusRow(id=o["id"], title=o["title"], detail=_when(o, today),
+        StatusRow(id=_row_id(o["id"]), title=o["title"], detail=_when(o, today),
                   dimmed=o["start"][:10] != today.isoformat())
         for o in upcoming[:ROWS]
     )

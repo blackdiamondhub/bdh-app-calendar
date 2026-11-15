@@ -39,8 +39,10 @@ spec = PluginSpec(
     permissions=(),
     # Fetches the iCal feeds (school, Google, iCloud).
     network=NETWORK_OUTBOUND,
-    # Feeds are refreshed when the page or the hub's status hook asks.
+    # Feeds are refreshed when the page or the hub's status hook asks; the
+    # hourly wake keeps the tile and feeds current while nobody opens it.
     lifecycle=LIFECYCLE_ON_DEMAND,
+    wake_every=3600,
     # A parsed feed takes ~15x its size (a 2 MB Google feed is ~40 MB) and a
     # refresh parses the new copy while the old one is cached.
     memory_mb=192,
