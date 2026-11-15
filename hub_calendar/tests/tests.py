@@ -80,6 +80,15 @@ class FeedTests(TestCase):
         self.feed.refresh_from_db()
         self.assertEqual(self.feed.last_error, "")
 
+    def test_refresh_parses_once_and_reuses_it(self):
+        real = cal.parse_ics
+        with patch.object(cal, "fetch_ics", return_value=ICS), \
+                patch.object(cal, "parse_ics", side_effect=real) as parse:
+            self.assertTrue(cal.refresh_feed(self.feed))
+            self.feed.refresh_from_db()
+            self.assertTrue(cal.feed_occurrences(self.feed, L("2025-09-01T00:00"), L("2025-09-29T00:00")))
+        self.assertEqual(parse.call_count, 1)
+
     def test_disabled_feeds_are_not_shown(self):
         self.feed.enabled = False
         self.feed.save()
