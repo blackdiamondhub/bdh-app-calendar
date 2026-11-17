@@ -569,10 +569,22 @@ class AppFeedTests(TestCase):
         self.broker.grant_share("hub_calendar", "events", "photos")
         page = self.client.get(reverse("hub_calendar_feeds"))
         self.assertContains(page, '<option value="events/events" data-title="Sun Peaks events">'
-                                  'Sun Peaks events — from events</option>', html=False)
+                                  'Sun Peaks events — from Events</option>', html=False)
         self.assertNotContains(page, "events/photos")
         self.assertNotContains(page, "tides/tides")
         self.assertNotContains(page, "No apps are sharing")
+
+    def test_shared_feeds_named_by_app_name_not_id(self):
+        self.client.force_login(self.admin)
+        listed = [{"provider": "sunpeaks_events", "provider_title": "Sun Peaks Events", "name": "events",
+                   "title": "Sun Peaks events", "type": "text/calendar", "revision": 1, "updated": None},
+                  {"provider": "lodge_tides", "name": "tides", "title": "Tides", "type": "text/calendar",
+                   "revision": 1, "updated": None}]
+        with patch("bdh_sdk.shares.list_shares", return_value=listed):
+            page = self.client.get(reverse("hub_calendar_feeds"))
+        self.assertContains(page, "Sun Peaks events — from Sun Peaks Events")
+        self.assertContains(page, "Tides — from Lodge Tides")
+        self.assertNotContains(page, "from sunpeaks_events")
 
     def test_add_app_feed(self):
         self.client.force_login(self.admin)
@@ -588,7 +600,7 @@ class AppFeedTests(TestCase):
         feed = Feed.objects.get()
         self.assertEqual((feed.source, feed.provider, feed.share_name, feed.url, feed.share_revision),
                          ("app", "events", "events", "", 1))
-        self.assertContains(self.client.get(url), "Sun Peaks events — from events")
+        self.assertContains(self.client.get(url), "Sun Peaks events — from Events")
 
 
 @override_settings(HUB_LOCATION=TZ)
