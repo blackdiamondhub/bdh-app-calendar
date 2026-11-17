@@ -302,7 +302,7 @@ CALENDAR_TYPE = "text/calendar"
 
 
 def calendar_shares():
-    """Calendars other apps share with Calendar: ``[{key, provider, name, title, label}]``."""
+    """Calendars other apps share with Calendar: ``[{key, provider, name, title, source, label}]``."""
     try:
         from bdh_sdk import shares
         listed = shares.list_shares()
@@ -319,9 +319,14 @@ def calendar_shares():
         if not provider or not name:
             continue
         title = str(sh.get("title") or name)
+        source = str(sh.get("provider_title") or "") or _readable(provider)
         out.append({"key": f"{provider}/{name}", "provider": provider, "name": name,
-                    "title": title, "label": f"{title} — from {provider}"})
+                    "title": title, "source": source, "label": f"{title} — from {source}"})
     return out
+
+
+def _readable(app_id):
+    return app_id.replace("_", " ").title()
 
 
 def _feed_from_post(feed, post):
@@ -413,12 +418,13 @@ def feeds_page(request):
     note = note or request.session.pop("hub_calendar_note", None)
     feeds = list(Feed.objects.prefetch_related("people"))
     shares = calendar_shares()
-    titles = {s["key"]: s["title"] for s in shares}
+    by_key = {s["key"]: s for s in shares}
     for f in feeds:
         f.updated = _ago(f.fetched_at)
         f.tagged = {p.id for p in f.people.all()}
         if f.source == "app":
-            f.share_label = f"{titles.get(f'{f.provider}/{f.share_name}', f.share_name)} — from {f.provider}"
+            sh = by_key.get(f"{f.provider}/{f.share_name}") or {}
+            f.share_label = f"{sh.get('title', f.share_name)} — from {sh.get('source') or _readable(f.provider)}"
     return render(request, "hub_calendar/settings_feeds.html", {
         "active": cal.APP, "feeds": feeds, "people": Person.objects.all(),
         "palette": PALETTE, "note": note, "next_color": PALETTE[len(feeds) % len(PALETTE)],
