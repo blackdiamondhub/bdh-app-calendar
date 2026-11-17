@@ -14,7 +14,8 @@ the current stay from the hub, and needs outbound network access for the feeds.
   daytime hours, night is hatched, pills show events hidden above or below,
   and today's column follows the current time into the night. A ↻ button
   (top or bottom, depending on which way you scrolled) or a double tap puts a
-  column back. The day view adds an *Up next* card and the day's list.
+  column back. On a phone the week shows three days at a time: swipe
+  sideways to move a day, or tap a date in the week strip above. The day view adds an *Up next* card and the day's list.
   Month cells list community events by name only when they all fit, and
   otherwise show 🎿 *N events*.
 - **Looks.** *Glass* (frosted tiles over a mountain painting), *Paper*
