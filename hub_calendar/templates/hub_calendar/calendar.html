@@ -12,7 +12,7 @@
   #cal, #cal *, .cm, .cm * { box-sizing: border-box; }
   #cal {
     --card: #18243a; --card2: #1d2b45; --line: #26354f; --mut: #8fa3bd; --acc: #5ba4e6; --red: #ff8a8a;
-    height: calc(100vh - 62px); padding: 14px 20px 12px; display: flex; flex-direction: column; gap: 10px;
+    height: 100vh; padding: 14px 20px 12px; display: flex; flex-direction: column; gap: 10px;
     max-width: 1920px; margin: 0 auto; user-select: none; -webkit-user-select: none;
     font-family: "Segoe UI", Inter, system-ui, sans-serif;
   }
@@ -182,7 +182,7 @@
   }
 
   @media (max-width: 900px) {
-    .side { display: none; position: absolute; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; top: 60px; left: 20px; max-height: 70vh; }
+    .side { display: none; position: absolute; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; top: 3.75rem; left: 20px; max-height: 70vh; }
     #cal.showside .side { display: block; }
     .cfilt { display: flex; }
     .cttl { min-width: 0; font-size: 20px; flex: 1; }
