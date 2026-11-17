@@ -5,6 +5,7 @@ Times are handled as *local wall-clock* times in the hub's time zone
 """
 import hashlib
 import logging
+import re
 import threading
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -23,8 +24,18 @@ log = logging.getLogger(__name__)
 
 APP = "hub_calendar"
 GUEST_EVENT_TTL = timedelta(days=14)  # when the stay has no checkout time
-MAX_ICS_BYTES = 8 * 1024 * 1024
+MAX_ICS_BYTES = 2 * 1024 * 1024  # kept and parsed; a parsed feed takes ~15x its size
+MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024  # streamed through trim_events, never held whole
+MAX_EVENTS = 500  # VEVENTs kept per feed
+MAX_DESCRIPTION = 4000
+MAX_LOCATION = 300
+MAX_PRICE = 100
+MAX_SCHEDULE = 30
+MAX_SCHEDULE_LABEL = 120
+MAX_LINK = 2000
 FETCH_TIMEOUT = 15
+APP_FEED_REFRESH = timedelta(minutes=2)  # app feeds are cheap to check (if_revision)
+SHARE_PREFIX = "bdh-share:"
 REFRESH_LOCK = "hub_calendar:refreshing"
 
 # Parsed feeds, shared by request threads and the refresh thread. Parses are
@@ -158,34 +169,153 @@ def parse_ics(text):
     return x_wr_timezone.to_standard(cal)
 
 
+def _lines(chunks, limit=MAX_DOWNLOAD_BYTES):
+    """Byte chunks -> decoded lines (with endings), at most ``limit`` bytes in all."""
+    size, buf, head = 0, b"", ""
+    for chunk in chunks:
+        size += len(chunk)
+        if size > limit:
+            raise ValueError(f"calendar is larger than {limit // (1024 * 1024)} MB")
+        buf += chunk
+        *done, buf = buf.split(b"\n")
+        for raw in done:
+            # iCal is UTF-8 by spec; requests would guess Latin-1 for text/calendar.
+            line = raw.decode("utf-8", errors="replace") + "\n"
+            if head is not None:
+                head += line
+                if "BEGIN:VCALENDAR" in head.upper():
+                    head = None
+                elif len(head) > 4096:
+                    raise ValueError("that link didn't return an iCal calendar")
+            yield line
+    if buf:
+        yield buf.decode("utf-8", errors="replace")
+
+
 def fetch_ics(url):
+    """Download a feed, keeping only :data:`MAX_EVENTS` events (see :func:`trim_events`)."""
     import requests
 
     r = requests.get(url, timeout=FETCH_TIMEOUT, stream=True,
                      headers={"User-Agent": "BlackDiamondHub-Calendar/1.0"})
     r.raise_for_status()
-    chunks, size = [], 0
-    for chunk in r.iter_content(65536):
-        size += len(chunk)
-        if size > MAX_ICS_BYTES:
-            raise ValueError("calendar is larger than 8 MB")
-        chunks.append(chunk)
-    # iCal is UTF-8 by spec; requests would guess Latin-1 for text/calendar.
-    text = b"".join(chunks).decode("utf-8", errors="replace")
+    text = trim_events(_lines(r.iter_content(65536)))
     if "BEGIN:VCALENDAR" not in text[:4096].upper():
         raise ValueError("that link didn't return an iCal calendar")
+    if len(text) > MAX_ICS_BYTES:
+        raise ValueError("calendar is larger than 2 MB, even with only its next 500 events")
     return text
+
+
+class ShareGone(Exception):
+    """The app share was revoked or removed: drop the cached copy."""
+
+
+def fetch_share(feed):
+    """``(text, revision, attachments)`` of an app feed, or None when unchanged."""
+    try:
+        from bdh_sdk import shares
+    except ImportError:
+        raise ValueError("this hub's SDK doesn't support app shares")
+    try:
+        opened = shares.open_share(feed.provider, feed.share_name,
+                                   if_revision=feed.share_revision if feed.ics else None)
+    except shares.SharesError as exc:
+        if exc.code == "forbidden":
+            raise ShareGone("this calendar is no longer shared with Calendar")
+        if exc.code == "not_found":
+            raise ShareGone("the app isn't publishing this calendar (yet)")
+        raise ValueError(f"the app share couldn't be read ({exc.code})")
+    if opened is None:
+        return None
+    if len(opened.data) > MAX_ICS_BYTES:
+        raise ValueError("calendar is larger than 2 MB")
+    text = opened.data.decode("utf-8", errors="replace")
+    if "BEGIN:VCALENDAR" not in text[:4096].upper():
+        raise ValueError("the app didn't share an iCal calendar")
+    attachments = {str(k): str(v) for k, v in (opened.attachments or {}).items()
+                   if isinstance(v, str) and v.startswith("/")}
+    return text, int(opened.revision), attachments
+
+
+_DATE_RE = re.compile(r"^(DTEND|DTSTART)[^:]*:(\d{8})", re.I)
+
+
+def trim_events(lines, limit=MAX_EVENTS, today=None):
+    """Keep at most ``limit`` VEVENTs: repeating and upcoming ones (from 60
+    days ago on) first, in feed order, then the most recent past ones.
+
+    ``lines`` is the feed's text or an iterable of its lines; an iterable is
+    consumed as it comes, so a big feed is never held (or parsed) whole.
+    """
+    import heapq
+
+    if isinstance(lines, str):
+        if lines.upper().count("BEGIN:VEVENT") <= limit:
+            return lines
+        lines = lines.splitlines(keepends=True)
+    cutoff = ((today or date.today()) - timedelta(days=60)).strftime("%Y%m%d")
+    head, tail = [], []  # everything outside VEVENTs, before / after the first one
+    first, past = [], []  # (seq, text); past is a min-heap of (last date, seq, text)
+    block, seq = None, 0
+    for line in lines:
+        upper = line[:16].upper()
+        if block is None:
+            if upper.startswith("BEGIN:VEVENT"):
+                block, recurring, last = [line], False, ""
+            else:
+                (tail if seq else head).append(line)
+            continue
+        block.append(line)
+        if upper.startswith(("RRULE", "RDATE")):
+            recurring = True
+        elif upper.startswith(("DTSTART", "DTEND")):
+            m = _DATE_RE.match(line)
+            if m and m.group(2) > last:
+                last = m.group(2)
+        elif upper.startswith("END:VEVENT"):
+            seq += 1
+            text = "".join(block)
+            block = None
+            if recurring or last >= cutoff:
+                if len(first) < limit:
+                    first.append((seq, text))
+            elif len(past) < limit:
+                heapq.heappush(past, (last, seq, text))
+            else:
+                heapq.heappushpop(past, (last, seq, text))
+    room = limit - len(first)
+    newest = heapq.nlargest(room, past) if room > 0 else []
+    kept = sorted(first + [(s, t) for _, s, t in newest])
+    return "".join(head) + "".join(t for _, t in kept) + "".join(tail)
 
 
 def refresh_feed(feed):
     """Download a feed. On failure the last good copy is kept."""
     feed.last_attempt = timezone.now()
     try:
-        text = fetch_ics(feed.url)
+        if feed.source == "app":
+            got = fetch_share(feed)
+            if got is None:  # not modified
+                feed.last_error = ""
+                feed.save(update_fields=["last_attempt", "last_error"])
+                return True
+            text, revision, attachments = got
+        else:
+            text = fetch_ics(feed.url)
+        text = trim_events(text)
         with _parse_lock:
             # A big feed parses to ~30 MB; drop the old copy first so two never coexist.
             _parsed.pop(feed.id, None)
             parsed = parse_ics(text)
+    except ShareGone as exc:
+        _parsed.pop(feed.id, None)
+        feed.ics, feed.fetched_at, feed.share_revision, feed.attachments = "", None, 0, {}
+        feed.last_error = str(exc)[:300]
+        feed.save(update_fields=["ics", "fetched_at", "share_revision", "attachments",
+                                 "last_attempt", "last_error"])
+        log.warning("calendar feed %s: %s", feed.name, feed.last_error)
+        return False
     except Exception as exc:
         feed.last_error = (str(exc) or exc.__class__.__name__)[:300]
         feed.save(update_fields=["last_attempt", "last_error"])
@@ -194,7 +324,11 @@ def refresh_feed(feed):
     feed.ics = text
     feed.fetched_at = feed.last_attempt
     feed.last_error = ""
-    feed.save(update_fields=["ics", "fetched_at", "last_attempt", "last_error"])
+    fields = ["ics", "fetched_at", "last_attempt", "last_error"]
+    if feed.source == "app":
+        feed.share_revision, feed.attachments = revision, attachments
+        fields += ["share_revision", "attachments"]
+    feed.save(update_fields=fields)
     _parsed[feed.id] = (feed.fetched_at, parsed)
     return True
 
@@ -207,9 +341,12 @@ def refresh_minutes():
 
 
 def stale_feeds():
-    cutoff = timezone.now() - timedelta(minutes=refresh_minutes())
+    now = timezone.now()
+    cutoff = now - timedelta(minutes=refresh_minutes())
+    app_cutoff = now - APP_FEED_REFRESH
     return [f for f in Feed.objects.filter(enabled=True)
-            if f.last_attempt is None or f.last_attempt < cutoff]
+            if f.last_attempt is None
+            or f.last_attempt < (app_cutoff if f.source == "app" else cutoff)]
 
 
 def _refresh_worker(ids):
@@ -243,7 +380,7 @@ def _feed_calendar(feed):
             return hit[1]
         _parsed.pop(feed.id, None)
         try:
-            cal = parse_ics(feed.ics)
+            cal = parse_ics(trim_events(feed.ics))
         except Exception:
             log.exception("calendar feed %s cached copy is unreadable", feed.name)
             return None
@@ -260,7 +397,107 @@ def _local(value, tz):
     return datetime.combine(value, time()), True
 
 
-def feed_occurrences(feed, start, end):
+def _values(comp, name):
+    """Every value of a (possibly repeated) property, as stripped strings."""
+    raw = comp.get(name)
+    if raw is None:
+        return []
+    items = raw if isinstance(raw, list) else [raw]
+    out = []
+    for item in items:
+        if isinstance(item, (list, tuple)):
+            out.extend(str(x).strip() for x in item)
+        else:
+            out.append(str(item).strip())
+    if name.startswith("X-"):
+        # icalendar hands X- properties back raw; undo RFC 5545 TEXT escaping.
+        out = [_TEXT_ESCAPE.sub(_unescape, v) for v in out]
+    return [v for v in out if v]
+
+
+_TEXT_ESCAPE = re.compile(r"\\([nN,;\\])")
+
+
+def _unescape(m):
+    c = m.group(1)
+    return "\n" if c in "nN" else c
+
+
+def _one_line(value, limit):
+    return " ".join(value.split())[:limit]
+
+
+def _web_link(value, https_only=False):
+    value = value.strip()
+    if len(value) > MAX_LINK or any(c.isspace() for c in value):
+        return ""
+    ok = ("https://",) if https_only else ("https://", "http://")
+    return value if value.lower().startswith(ok) else ""
+
+
+def share_image(ref, feed, hub_origin):
+    """``bdh-share:<key>`` -> the hub URL of that attachment (app feeds only)."""
+    if feed.source != "app" or not ref.startswith(SHARE_PREFIX):
+        return ""
+    try:
+        from bdh_sdk import shares
+        opened = shares.Opened(revision=feed.share_revision, type="text/calendar", title="",
+                               data=b"", attachments=dict(feed.attachments or {}))
+        return shares.resolve(ref, opened, hub_origin) or ""
+    except (ImportError, AttributeError, TypeError):
+        path = (feed.attachments or {}).get(ref[len(SHARE_PREFIX):])
+        return (hub_origin or "").rstrip("/") + path if path else ""
+
+
+_TIME = r"([01]?\d|2[0-3]):([0-5]\d)"
+_SCHEDULE_RE = re.compile(rf"^{_TIME}(?:\s*[-\u2013\u2014]\s*{_TIME})?$")
+
+
+def parse_schedule(values):
+    """X-BDH-SCHEDULE values -> ``[{"start", "end", "label"}]``.
+
+    Each value is ``HH:MM|Label`` or ``HH:MM–HH:MM|Label`` (24-hour time; the
+    dash may be an en dash, em dash or hyphen). Anything else is skipped.
+    """
+    rows = []
+    for value in values:
+        if len(rows) >= MAX_SCHEDULE:
+            break
+        when, sep, label = value.partition("|")
+        label = _one_line(label, MAX_SCHEDULE_LABEL)
+        m = _SCHEDULE_RE.match(when.strip())
+        if not sep or not label or not m:
+            continue
+        rows.append({
+            "start": f"{int(m.group(1)):02d}:{m.group(2)}",
+            "end": f"{int(m.group(3)):02d}:{m.group(4)}" if m.group(3) else "",
+            "label": label,
+        })
+    return rows
+
+
+def event_extras(comp, feed, hub_origin=""):
+    """The bounded poster fields of a VEVENT: url, image, notes, location, price, schedule."""
+    url = next((u for u in map(_web_link, _values(comp, "URL")) if u), "")
+    image = ""
+    for ref in _values(comp, "IMAGE"):
+        image = share_image(ref, feed, hub_origin) if ref.startswith(SHARE_PREFIX) \
+            else _web_link(ref, https_only=True)
+        if image:
+            break
+    description = "\n".join(_values(comp, "DESCRIPTION"))
+    price = next(iter(_values(comp, "X-BDH-PRICE")), "")
+    return {
+        "url": url,
+        "image": image,
+        "notes": description.replace("\r\n", "\n")[:MAX_DESCRIPTION],
+        "location": _one_line(" ".join(_values(comp, "LOCATION")), MAX_LOCATION),
+        "price": _one_line(price, MAX_PRICE),
+        "schedule": parse_schedule(_values(comp, "X-BDH-SCHEDULE")),
+    }
+
+
+def feed_occurrences(feed, start, end, hub_origin=""):
     """Occurrences of a feed overlapping [start, end) (naive local datetimes)."""
     import recurring_ical_events
 
@@ -291,13 +528,17 @@ def feed_occurrences(feed, start, end):
         if not (s < end and (e > start or (e == s and s >= start))):
             continue
         uid = str(comp.get("UID", "")) or f"{s}"
+        try:
+            extras = event_extras(comp, feed, hub_origin)
+        except Exception:
+            log.exception("calendar feed %s: bad event extras", feed.name)
+            extras = {"url": "", "image": "", "notes": "", "location": "", "price": "", "schedule": []}
         out.append({
             "id": f"f{feed.id}:{uid}:{iso(s)}",
             "source": f"feed:{feed.id}",
-            "title": str(comp.get("SUMMARY", "")) or "(no title)",
+            "title": _one_line(str(comp.get("SUMMARY", "")), 200) or "(no title)",
             "start": iso(s), "end": iso(e), "all_day": all_day,
-            "location": str(comp.get("LOCATION", "")),
-            "notes": str(comp.get("DESCRIPTION", ""))[:2000],
+            **extras,
             "color": feed.color, "people": people,
             "editable": False, "repeat": "", "feed": feed.name,
         })
@@ -367,11 +608,14 @@ def hub_color():
     return c if len(c) == 7 and c.startswith("#") else "#3fbf7f"
 
 
-def occurrences(start, end, viewer, feeds=None):
-    """All events overlapping [start, end), sorted by start."""
+def occurrences(start, end, viewer, feeds=None, hub_origin=""):
+    """All events overlapping [start, end), sorted by start.
+
+    ``hub_origin`` (``request.bdh_hub_origin``) makes images apps share loadable.
+    """
     feeds = list(Feed.objects.filter(enabled=True).prefetch_related("people")) if feeds is None else feeds
     out = hub_occurrences(start, end, viewer, hub_color())
     for feed in feeds:
-        out.extend(feed_occurrences(feed, start, end))
+        out.extend(feed_occurrences(feed, start, end, hub_origin))
     out.sort(key=lambda o: (o["start"][:10], not o["all_day"], o["start"], o["title"]))
     return out

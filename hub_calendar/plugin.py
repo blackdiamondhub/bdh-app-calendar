@@ -29,7 +29,7 @@ spec = PluginSpec(
     ),
     settings_pages=(
         SettingsPage("Calendar feeds", "hub_calendar_feeds",
-                     subtitle="iCal links (school, Google, iCloud) shown on this hub",
+                     subtitle="iCal links and calendars other apps share, shown on this hub",
                      icon="fas fa-rss"),
         SettingsPage("People", "hub_calendar_people",
                      subtitle="Who events can be tagged with", icon="fas fa-user-tag"),
@@ -43,7 +43,9 @@ spec = PluginSpec(
     # hourly wake keeps the tile and feeds current while nobody opens it.
     lifecycle=LIFECYCLE_ON_DEMAND,
     wake_every=3600,
-    # A parsed feed takes ~15x its size (a 2 MB Google feed is ~40 MB) and a
-    # refresh parses the new copy while the old one is cached.
+    # Calendars other apps share (Settings > Apps > <app> > Sharing).
+    reads=("text/calendar",),
+    # A parsed feed takes ~15x its size (feeds are capped at 2 MB / 500 events)
+    # and a refresh parses the new copy while the old one is cached.
     memory_mb=192,
 )

@@ -32,6 +32,12 @@
     .hc-feed.off > summary .nm { color: var(--mut); }
     .hc-addbtn { width: 100%; margin: 8px 0 18px; }
     .hc-add[hidden] { display: none; }
+    .hc-src { display: flex; gap: 8px; flex-wrap: wrap; }
+    .hc-src label { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+    .hc-src label:has(input:checked) { border-color: var(--acc2); background: rgba(91,164,230,.12); }
+    .hc-pane[hidden] { display: none; }
+    .hc-share { width: 100%; }
+    .hc-empty { color: var(--mut); font-size: 14px; line-height: 1.55; }
 </style>
 
 <div class="hst-head">
@@ -59,6 +65,15 @@
         <div class="lbl"><b>Name</b></div>
         <div class="ctl"><input class="hst-in txt" name="name" value="{{ f.name }}" maxlength="80" required></div>
     </div>
+    {% if f.source == "app" %}
+    <div class="hst-row">
+        <div class="lbl"><b>From an app</b>
+            {% if f.last_error %}<small class="warn">⚠ {{ f.last_error }}{% if f.fetched_at %} · showing the copy from {{ f.updated }}{% endif %}</small>
+            {% else %}<small>Updated {{ f.updated }}</small>{% endif %}
+        </div>
+        <div class="ctl"><span class="hst-none">{{ f.share_label }}</span></div>
+    </div>
+    {% else %}
     <div class="hst-row" style="flex-wrap:wrap">
         <div class="lbl" style="flex-basis:100%"><b>Address</b>
             {% if f.last_error %}<small class="warn">⚠ Last refresh failed: {{ f.last_error }}{% if f.fetched_at %} · showing the copy from {{ f.updated }}{% endif %}</small>
@@ -66,6 +81,7 @@
         </div>
         <input class="hst-in hc-url" name="url" value="{{ f.url }}" required>
     </div>
+    {% endif %}
     <div class="hst-row">
         <div class="lbl"><b>Colour</b></div>
         <div class="ctl hc-sw">
@@ -106,9 +122,26 @@
         <div class="lbl"><b>Name</b></div>
         <div class="ctl"><input class="hst-in txt" name="name" maxlength="80" placeholder="e.g. MIHS" required></div>
     </div>
-    <div class="hst-row" style="flex-wrap:wrap">
+    <div class="hst-row">
+        <div class="lbl"><b>Source</b></div>
+        <div class="ctl hc-src">
+            <label><input type="radio" name="source" value="url"{% if add_source != "app" %} checked{% endif %}> Link</label>
+            <label><input type="radio" name="source" value="app"{% if add_source == "app" %} checked{% endif %}> From an app</label>
+        </div>
+    </div>
+    <div class="hst-row hc-pane" id="hc-pane-url" style="flex-wrap:wrap"{% if add_source == "app" %} hidden{% endif %}>
         <div class="lbl" style="flex-basis:100%"><b>Address</b><small>An iCal link (https:// or webcal://).</small></div>
-        <input class="hst-in hc-url" name="url" placeholder="https://… or webcal://…" required>
+        <input class="hst-in hc-url" name="url" placeholder="https://… or webcal://…"{% if add_source != "app" %} required{% endif %}>
+    </div>
+    <div class="hst-row hc-pane" id="hc-pane-app" style="flex-wrap:wrap"{% if add_source != "app" %} hidden{% endif %}>
+        <div class="lbl" style="flex-basis:100%"><b>Calendar</b><small>Calendars other apps on this hub share with Calendar.</small></div>
+        {% if shares %}
+        <select class="hst-in hc-share" name="share" id="hc-share">
+            {% for sh in shares %}<option value="{{ sh.key }}" data-title="{{ sh.title }}">{{ sh.label }}</option>{% endfor %}
+        </select>
+        {% else %}
+        <p class="hc-empty" id="hc-noshares">No apps are sharing calendars with Calendar yet. An admin can share one in Settings → Apps → &lt;app&gt; → Sharing.</p>
+        {% endif %}
     </div>
     <div class="hst-row">
         <div class="lbl"><b>Colour</b></div>
@@ -146,8 +179,19 @@
         form.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
     document.getElementById('hc-addcancel').addEventListener('click', function () {
-        form.reset(); form.hidden = true; btn.hidden = false;
+        form.reset(); sync(); form.hidden = true; btn.hidden = false;
     });
+    var url = form.querySelector('input[name=url]'), name = form.querySelector('input[name=name]'),
+        share = document.getElementById('hc-share');
+    function sync() {
+        var app = form.querySelector('input[name=source]:checked').value === 'app';
+        document.getElementById('hc-pane-url').hidden = app;
+        document.getElementById('hc-pane-app').hidden = !app;
+        url.required = !app;
+        if (app && share && !name.value) name.value = share.selectedOptions[0].dataset.title || '';
+    }
+    form.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', sync); });
+    if (share) share.addEventListener('change', function () { name.value = share.selectedOptions[0].dataset.title || ''; });
 })();
 </script>
 {% endblock %}
