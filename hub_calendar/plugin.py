@@ -19,7 +19,11 @@ spec = PluginSpec(
     ),
     settings=(
         Setting("default_view", "Opens in", type=CHOICE, default="month",
-                choices=(("month", "Month"), ("week", "Week"), ("agenda", "Agenda"))),
+                choices=(("month", "Month"), ("week", "Week"), ("day", "Day"),
+                         ("agenda", "Agenda"))),
+        Setting("theme", "Look", type=CHOICE, default="glass",
+                choices=(("glass", "Glass"), ("paper", "Paper"), ("classic", "Classic")),
+                help="Glass and Paper sit on a painting; Classic is the plain dark look."),
         Setting("week_start", "Week starts on", type=CHOICE, default="sun",
                 choices=(("sun", "Sunday"), ("mon", "Monday"))),
         Setting("refresh", "Refresh feeds every", type=INT, default=15,

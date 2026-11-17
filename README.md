@@ -9,8 +9,17 @@ the current stay from the hub, and needs outbound network access for the feeds.
 
 ## Features
 
-- **Month, week and agenda views.** The week view covers the full 24 hours;
-  it scrolls vertically with bouncing arrows instead of scrollbars.
+- **Month, week, day and agenda views.** In the week view each day column
+  drags (or wheels) on its own through the full 24 hours; it rests on the
+  daytime hours, night is hatched, pills show events hidden above or below,
+  and today's column follows the current time into the night. A ↻ button
+  (top or bottom, depending on which way you scrolled) or a double tap puts a
+  column back. The day view adds an *Up next* card and the day's list.
+  Month cells list community events by name only when they all fit, and
+  otherwise show 🎿 *N events*.
+- **Looks.** *Glass* (frosted tiles over a mountain painting), *Paper*
+  (paper cards over an impressionist snow scene) or *Classic* (the original
+  dark look). The paintings are public domain.
 - **Calendar feeds.** Subscribe to iCal/webcal links. Feeds refresh in the
   background (every 15 minutes by default) and the last good copy is kept if
   a refresh fails. Feed events are read-only.
@@ -38,7 +47,8 @@ the current stay from the hub, and needs outbound network access for the feeds.
 |---|---|
 | Calendar feeds | Add, colour, tag, pause, refresh or remove iCal subscriptions |
 | People | The people events can be tagged with |
-| Default view | Month, week or agenda |
+| Look | Glass, Paper or Classic |
+| Default view | Month, week, day or agenda |
 | Week starts on | Sunday or Monday |
 | Refresh feeds every | Minutes between feed refreshes (minimum 5) |
 | Colour for hub events | Colour of events added on the hub |
@@ -88,6 +98,9 @@ X-BDH-SCHEDULE:15:00-18:00|Après & Ales at Masa's
 
 ## Changelog
 
+- **2.2.0** — Glass and Paper looks (*Look* setting, Glass by default);
+  day view; week columns that drag independently with a reset button and
+  follow the current time; month cells that only list names when they fit.
 - **2.1.0** — Calendars shared by other apps (*From an app* feeds, bdh-sdk
   0.35 shares); event posters with photo, schedule, price and QR code;
   `URL`, `IMAGE`, `X-BDH-PRICE` and `X-BDH-SCHEDULE` support; feeds capped at
