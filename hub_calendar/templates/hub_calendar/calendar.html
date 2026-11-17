@@ -135,6 +135,52 @@
   .ro { font-size: 13px; color: var(--mut); background: var(--card2); border-radius: 10px; padding: 8px 10px; }
   .scope .b { display: block; width: 100%; margin-bottom: 8px; text-align: left; background: var(--card2); }
 
+  /* event poster: photo (or gradient + big date) with a frosted info panel */
+  .pst { position: relative; width: 1080px; height: 620px; max-width: 96vw; max-height: 94vh; border-radius: 22px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.6); background: #121d31; }
+  .pst[hidden] { display: none; }
+  .pst.noimg { background: radial-gradient(circle at 75% 40%, #2b5f93 0, #1b3556 35%, #121d31 75%); }
+  .pst .pimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pst .pbig { position: absolute; right: 90px; top: 50%; transform: translateY(-50%); text-align: center; color: rgba(255,255,255,.9); }
+  .pst:not(.noimg) .pbig { display: none; }
+  .pbig .m { font-size: 40px; font-weight: 700; letter-spacing: .2em; color: #ffb4ab; }
+  .pbig .n { font-size: 220px; font-weight: 800; line-height: 1; }
+  .pbig .w { font-size: 30px; color: #cfe2f7; }
+  .pst .px { position: absolute; top: 14px; right: 14px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+  .pst .glass { position: absolute; left: 24px; top: 24px; bottom: 24px; width: 470px; background: rgba(12,20,34,.72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 26px; display: flex; flex-direction: column; user-select: text; }
+  .pdate { display: flex; gap: 14px; align-items: center; }
+  .pdate b { font-size: 18px; }
+  .cal1 { width: 64px; flex: none; border-radius: 12px; overflow: hidden; text-align: center; background: #fff; color: #18243a; }
+  .cal1 .m { background: #e05a4f; color: #fff; font-size: 13px; font-weight: 700; padding: 2px; }
+  .cal1 .n { font-size: 28px; font-weight: 700; padding: 2px 0 4px; }
+  .pchip { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 13px; color: #cfe2f7; background: rgba(91,164,230,.18); border: 1px solid rgba(91,164,230,.4); border-radius: 99px; padding: 3px 10px; }
+  .pchip i { width: 8px; height: 8px; border-radius: 50%; }
+  .pst h1 { margin: 16px 0 0; font-size: 32px; line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; }
+  .pmeta { display: grid; grid-template-columns: 26px 1fr; gap: 8px 6px; font-size: 16px; margin: 14px 0; }
+  .pmeta .ic { color: #5ba4e6; font-size: 18px; }
+  .pmeta span { overflow-wrap: anywhere; }
+  .pscroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .psh { font-size: 12px; letter-spacing: .08em; color: #8fa3bd; font-weight: 700; margin-top: 4px; }
+  .psch { margin: 4px 0 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; overflow: hidden; }
+  .psch div { display: grid; grid-template-columns: 150px 1fr; padding: 8px 12px; font-size: 15px; border-top: 1px solid rgba(255,255,255,.08); }
+  .psch div:first-child { border-top: 0; }
+  .psch b { color: #9fc8f0; font-weight: 600; }
+  .pdesc { font-size: 16px; line-height: 1.5; color: #c9d6e6; white-space: pre-line; overflow-wrap: anywhere; }
+  .pfoot { border-top: 1px solid rgba(255,255,255,.15); padding-top: 14px; margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+  .pqr { background: #fff; border-radius: 10px; padding: 8px; display: inline-block; line-height: 0; flex: none; }
+  .pqr img { width: 80px; height: 80px; }
+  .pfoot .mut { color: #8fa3bd; font-size: 14px; }
+  .pfoot .ro { flex: 1; }
+  .pfoot .btns { margin: 0 0 0 auto; }
+  @media (max-width: 700px) {
+    .pst { width: 94vw; height: auto; max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .pst .pimg { position: static; height: 200px; flex: none; }
+    .pst.noimg::before { content: ""; height: 56px; flex: none; }
+    .pst .pbig { display: none; }
+    .pst .glass { position: static; width: auto; border: 0; border-radius: 0; background: rgba(12,20,34,.72); padding: 20px; }
+    .pst h1 { font-size: 26px; }
+    .pscroll { overflow: visible; }
+  }
+
   @media (max-width: 900px) {
     .side { display: none; position: absolute; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; top: 60px; left: 20px; max-height: 70vh; }
     #cal.showside .side { display: block; }
@@ -184,7 +230,7 @@
   </div>
 </div>
 
-<div class="cm" id="m-pop" hidden><div class="box" id="pop"></div></div>
+<div class="cm" id="m-pop" hidden><div class="box" id="pop"></div><div class="pst" id="poster" hidden></div></div>
 <div class="cm" id="m-sheet" hidden><div class="box">
   <div class="shh"><span id="s-head">New event</span><button class="x" data-close aria-label="Close">&times;</button></div>
   <label>Title<input id="s-title" maxlength="200" autocomplete="off"></label>
@@ -538,24 +584,76 @@
   var REPEAT_LABEL = {};
   CFG.repeats.forEach(function (r) { REPEAT_LABEL[r[0]] = r[1]; });
   var popEv = null;
+  function isPoster(e) { return !!(e.image || e.url || e.notes || (e.schedule && e.schedule.length)); }
+  function sourceOf(e) { return sources().filter(function (s) { return s.id === e.source; })[0] || { name: '', color: e.color }; }
+  function peopleChips(e) {
+    return e.people.map(personById).filter(Boolean).map(function (p) {
+      return '<span class="chip on" style="cursor:default"><span class="av" style="background:' + esc(p.color) + '">' + esc(p.initials) + '</span>' + esc(p.name) + '</span>';
+    }).join('');
+  }
+  function actions(e, src) {
+    if (e.source !== 'hub') return '<div class="ro">🔒 From the ' + esc(src.name) + ' feed, so it can’t be changed here. Change it at the source.</div>';
+    if (!e.editable) return '<div class="ro">🔒 Guests can only change events they added.</div>';
+    return '<div class="btns"><button class="b ghost red" id="p-del">Delete</button><button class="b pri" id="p-edit">Edit</button></div>';
+  }
+  function repeatText(e) { return e.repeat ? '↻ ' + REPEAT_LABEL[e.repeat] + (e.until ? ' until ' + longDay(parse(e.until)) : '') : ''; }
+  function posterWhen(e) {
+    var s = parse(e.start), en = parse(e.end);
+    if (e.all_day) return dkey(addDays(en, -1)) > dkey(s) ? whenText(e) : DOW[s.getDay()] + ' · All day';
+    if (dkey(s) !== dkey(en)) return whenText(e);
+    return DOW[s.getDay()] + ' · ' + hm(s) + (e.end > e.start ? ' – ' + hm(en) : '');
+  }
+  function posterHtml(e, src) {
+    var s = parse(e.start), mon = MON[s.getMonth()].slice(0, 3).toUpperCase(), day = s.getDate();
+    var meta = '', ppl = peopleChips(e), body = '', foot = '';
+    if (e.location) meta += '<span class="ic">📍</span><span>' + esc(e.location) + '</span>';
+    if (e.price) meta += '<span class="ic">🎟️</span><span>' + esc(e.price) + '</span>';
+    if (e.repeat) meta += '<span class="ic">↻</span><span>' + esc(repeatText(e).slice(2)) + '</span>';
+    if (e.schedule && e.schedule.length) {
+      body += '<div class="psh">SCHEDULE</div><div class="psch">' + e.schedule.map(function (r) {
+        return '<div><b>' + esc(schedTime(r)) + '</b><span>' + esc(r.label) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    if (e.notes) body += '<div class="pdesc">' + esc(e.notes) + '</div>';
+    if (e.url) foot += '<div class="pqr"><img alt="QR code" src="' + esc(CFG.qr + '?u=' + encodeURIComponent(e.url)) + '"></div><div class="mut">Scan for details</div>';
+    foot += e.source === 'hub' ? actions(e, src) : '';
+    return (e.image ? '<img class="pimg" alt="" loading="lazy" referrerpolicy="no-referrer" src="' + esc(e.image) + '">' : '') +
+      '<div class="pbig"><div class="m">' + mon + '</div><div class="n">' + day + '</div><div class="w">' + DOW[s.getDay()] + '</div></div>' +
+      '<button class="px" data-close aria-label="Close">✕</button>' +
+      '<div class="glass"><div class="pdate"><div class="cal1"><div class="m">' + mon + '</div><div class="n">' + day + '</div></div>' +
+      '<div><b>' + esc(posterWhen(e)) + '</b><br><span class="pchip"><i style="background:' + esc(src.color || e.color) + '"></i>' + esc(src.name) + '</span></div></div>' +
+      '<h1>' + esc(e.title) + '</h1>' +
+      (meta ? '<div class="pmeta">' + meta + '</div>' : '<div style="height:14px"></div>') +
+      (ppl ? '<div class="chips" style="margin:-4px 0 12px">' + ppl + '</div>' : '') +
+      '<div class="pscroll">' + body + '</div>' +
+      (foot ? '<div class="pfoot">' + foot + '</div>' : '') + '</div>';
+  }
+  function schedTime(r) {
+    function t(v) { var p = v.split(':'), d = new Date(2000, 0, 1, +p[0], +p[1]); return hm(d); }
+    return r.end ? t(r.start) + ' – ' + t(r.end) : t(r.start);
+  }
   function openPop(id) {
     var e = find(id); if (!e) return;
     popEv = e;
-    var src = sources().filter(function (s) { return s.id === e.source; })[0] || { name: '', color: e.color };
-    var ppl = e.people.map(personById).filter(Boolean).map(function (p) {
-      return '<span class="chip on" style="cursor:default"><span class="av" style="background:' + esc(p.color) + '">' + esc(p.initials) + '</span>' + esc(p.name) + '</span>';
-    }).join('');
-    var meta = whenText(e);
-    if (e.repeat) meta += '\n↻ ' + REPEAT_LABEL[e.repeat] + (e.until ? ' until ' + longDay(parse(e.until)) : '');
-    if (e.location) meta += '\n' + e.location;
-    var h = '<div class="shh" style="margin:0"><div class="ph"><span class="sw" style="background:' + esc(e.color) + '"></span>' + esc(src.name) + '</div><button class="x" data-close aria-label="Close">&times;</button></div>' +
-            '<div class="pt">' + esc(e.title) + '</div><div class="pm">' + esc(meta) + '</div>' +
-            (ppl ? '<div class="chips" style="margin:-4px 0 12px">' + ppl + '</div>' : '') +
-            (e.notes ? '<div class="pm" style="color:#cfd8e6;font-size:14px;max-height:30vh;overflow:auto">' + esc(e.notes) + '</div>' : '');
-    if (e.source !== 'hub') h += '<div class="ro">🔒 From the ' + esc(src.name) + ' feed, so it can’t be changed here. Change it at the source.</div>';
-    else if (!e.editable) h += '<div class="ro">🔒 Guests can only change events they added.</div>';
-    else h += '<div class="btns"><button class="b ghost red" id="p-del">Delete</button><button class="b pri" id="p-edit">Edit</button></div>';
-    $('pop').innerHTML = h;
+    var src = sourceOf(e);
+    if (isPoster(e)) {
+      var p = $('poster');
+      p.className = 'pst' + (e.image ? '' : ' noimg');
+      p.innerHTML = posterHtml(e, src);
+      var img = p.querySelector('.pimg');
+      if (img) img.onerror = function () { img.remove(); p.classList.add('noimg'); };
+      $('pop').hidden = true; p.hidden = false;
+    } else {
+      var ppl = peopleChips(e);
+      var meta = whenText(e);
+      if (e.repeat) meta += '\n' + repeatText(e);
+      if (e.location) meta += '\n' + e.location;
+      if (e.price) meta += '\n🎟️ ' + e.price;
+      $('pop').innerHTML = '<div class="shh" style="margin:0"><div class="ph"><span class="sw" style="background:' + esc(e.color) + '"></span>' + esc(src.name) + '</div><button class="x" data-close aria-label="Close">&times;</button></div>' +
+              '<div class="pt">' + esc(e.title) + '</div><div class="pm">' + esc(meta) + '</div>' +
+              (ppl ? '<div class="chips" style="margin:-4px 0 12px">' + ppl + '</div>' : '') + actions(e, src);
+      $('poster').hidden = true; $('pop').hidden = false;
+    }
     show('m-pop');
     if (e.editable && e.source === 'hub') {
       $('p-edit').onclick = function () { hide('m-pop'); openSheet(e); };

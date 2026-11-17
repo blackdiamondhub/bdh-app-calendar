@@ -36,14 +36,23 @@ class Person(models.Model):
 
 
 class Feed(models.Model):
-    """An iCal subscription (school calendar, Google, iCloud ...).
+    """An iCal subscription (school calendar, Google, iCloud ...), or a
+    calendar another app on the hub shares with Calendar (``source="app"``).
 
     The last good copy is kept in ``ics`` so a failed refresh never empties
-    the calendar.
+    the calendar. For app feeds ``share_revision`` is the revision that copy
+    came from and ``attachments`` maps its image keys to hub paths.
     """
 
+    SOURCES = (("url", "Link"), ("app", "From an app"))
+
     name = models.CharField(max_length=80)
-    url = models.URLField(max_length=1000)
+    source = models.CharField(max_length=8, choices=SOURCES, default="url")
+    url = models.URLField(max_length=1000, blank=True, default="")
+    provider = models.CharField(max_length=64, blank=True, default="")
+    share_name = models.CharField(max_length=64, blank=True, default="")
+    share_revision = models.PositiveIntegerField(default=0)
+    attachments = models.JSONField(default=dict, blank=True)
     color = models.CharField(max_length=7, default=PALETTE[0])
     enabled = models.BooleanField(default=True)
     people = models.ManyToManyField(Person, blank=True, related_name="feeds")

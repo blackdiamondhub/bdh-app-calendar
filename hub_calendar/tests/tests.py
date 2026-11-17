@@ -398,3 +398,218 @@ class BrokerTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual((r.context["config"]["view"], r.context["config"]["weekStart"]), ("agenda", 1))
         self.assertIn({"app": "hub_calendar", "key": "default_view"}, self.broker.ops("settings.get"))
+
+
+def vevent(uid, start, *extra, rrule=False):
+    lines = ["BEGIN:VEVENT", f"UID:{uid}", f"DTSTART:{start}T180000Z", f"SUMMARY:{uid}"]
+    if rrule:
+        lines.append("RRULE:FREQ=WEEKLY")
+    return "\r\n".join(lines + list(extra) + ["END:VEVENT", ""])
+
+
+def vcal(*events):
+    return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\n" + "".join(events) + "END:VCALENDAR\r\n"
+
+
+POSTER = vcal(vevent(
+    "fest", "20250913",
+    "DESCRIPTION:Live music on the village stage.\\nBring a chair\\, it's free.",
+    "LOCATION:Village Day Plaza",
+    "URL:https://sunpeaksresort.com/events/fest",
+    "IMAGE;VALUE=URI:bdh-share:hero",
+    "X-BDH-PRICE:Free",
+    "X-BDH-SCHEDULE:11:00\u201312:00|Kids' parade",
+    "X-BDH-SCHEDULE:13:30|Headliner",
+    "X-BDH-SCHEDULE:nonsense",
+))
+
+
+class TrimTests(TestCase):
+    def test_keeps_repeating_and_upcoming_events_then_newest_past(self):
+        evs = [vevent("weekly", "20200106", rrule=True), vevent("old", "20200301"),
+               vevent("older", "20190301"), vevent("soon", "20250910"), vevent("recent", "20250801")]
+        text = cal.trim_events(vcal(*evs), limit=3, today=date(2025, 9, 1))
+        self.assertEqual([u for u in ("weekly", "old", "older", "soon", "recent") if f"UID:{u}\r" in text],
+                         ["weekly", "soon", "recent"])
+        self.assertTrue(text.startswith("BEGIN:VCALENDAR") and text.endswith("END:VCALENDAR\r\n"))
+
+    def test_streamed_download_is_trimmed_before_it_is_kept(self):
+        body = vcal(*[vevent(f"e{i}", "20990101") for i in range(cal.MAX_EVENTS + 20)]).encode()
+        chunks = [body[i:i + 1000] for i in range(0, len(body), 1000)]
+        text = cal.trim_events(cal._lines(chunks))
+        self.assertEqual(text.count("BEGIN:VEVENT"), cal.MAX_EVENTS)
+        cal.parse_ics(text)
+        with self.assertRaises(ValueError):
+            list(cal._lines(chunks, limit=len(body) - 1))
+        with self.assertRaisesMessage(ValueError, "didn't return an iCal"):
+            list(cal._lines([b"<html>" + b"x" * 5000 + b"\n"]))
+
+
+class ExtrasTests(TestCase):
+    def event(self, *props, source="url", attachments=None):
+        feed = Feed(name="F", url="https://x", source=source, attachments=attachments or {})
+        [comp] = cal.parse_ics(vcal(vevent("e", "20250913", *props))).walk("VEVENT")
+        return cal.event_extras(comp, feed, "https://hub.example/")
+
+    def test_schedule_rows(self):
+        rows = cal.parse_schedule(["9:05-10:00|Warm up", "11:00\u201412:00|  Race  ", "13:00|Awards",
+                                   "25:00|Bad hour", "10:00", "|No time", "10:00|", "noon|Lunch"])
+        self.assertEqual(rows, [{"start": "09:05", "end": "10:00", "label": "Warm up"},
+                                {"start": "11:00", "end": "12:00", "label": "Race"},
+                                {"start": "13:00", "end": "", "label": "Awards"}])
+        many = cal.parse_schedule([f"10:00|{'x' * 500}"] * 50)
+        self.assertEqual((len(many), len(many[0]["label"])), (cal.MAX_SCHEDULE, cal.MAX_SCHEDULE_LABEL))
+
+    def test_bounds_and_links(self):
+        x = self.event("DESCRIPTION:" + "d" * 5000, "URL:javascript:alert(1)",
+                       "IMAGE;VALUE=URI:http://insecure.example/a.jpg", "X-BDH-PRICE:$25\\n adults")
+        self.assertEqual((len(x["notes"]), x["url"], x["image"], x["price"]),
+                         (cal.MAX_DESCRIPTION, "", "", "$25 adults"))
+        x = self.event("URL:http://example.org/e", "IMAGE;VALUE=URI:https://img.example/a.jpg")
+        self.assertEqual((x["url"], x["image"]), ("http://example.org/e", "https://img.example/a.jpg"))
+
+    def test_share_images_only_resolve_for_app_feeds(self):
+        att = {"hero": "/apps/_share/abc"}
+        self.assertEqual(self.event("IMAGE;VALUE=URI:bdh-share:hero", attachments=att)["image"], "")
+        self.assertEqual(self.event("IMAGE;VALUE=URI:bdh-share:hero", source="app", attachments=att)["image"],
+                         "https://hub.example/apps/_share/abc")
+        self.assertEqual(self.event("IMAGE;VALUE=URI:bdh-share:missing", source="app", attachments=att)["image"], "")
+
+    @override_settings(HUB_LOCATION=TZ)
+    def test_feed_event_carries_poster_fields(self):
+        feed = Feed.objects.create(name="Sun Peaks", source="app", provider="events", share_name="events",
+                                   ics=POSTER, fetched_at=timezone.now(), attachments={"hero": "/apps/_share/h"})
+        [e] = cal.feed_occurrences(feed, L("2025-09-13T00:00"), L("2025-09-14T00:00"), "https://hub")
+        self.assertEqual(e["notes"], "Live music on the village stage.\nBring a chair, it's free.")
+        self.assertEqual((e["location"], e["price"], e["image"], e["url"]),
+                         ("Village Day Plaza", "Free", "https://hub/apps/_share/h",
+                          "https://sunpeaksresort.com/events/fest"))
+        self.assertEqual([r["label"] for r in e["schedule"]], ["Kids' parade", "Headliner"])
+
+
+@override_settings(HUB_LOCATION=TZ)
+class AppFeedTests(TestCase):
+    """Calendars other apps share with Calendar, via a fake hub broker."""
+
+    def setUp(self):
+        import base64
+
+        from bdh_sdk import settings, storage
+        from bdh_sdk.testing import FakeBroker
+
+        cal._parsed.clear()
+        saved = (settings._store, storage._backend)
+
+        def restore():
+            settings.set_store(saved[0])
+            storage.set_state_backend(saved[1])
+        self.b64 = lambda data: base64.b64encode(data).decode()
+        self.broker = FakeBroker(install=True, app_id="hub_calendar")
+        self.broker.start()
+        self.addCleanup(restore)
+        self.addCleanup(self.broker.stop)
+        self.broker.set_manifest_shares("events", [
+            {"name": "events", "type": "text/calendar", "title": "Sun Peaks events"},
+            {"name": "photos", "type": "image/jpeg", "title": "Photos"}])
+        self.broker.set_manifest_shares("tides", [
+            {"name": "tides", "type": "text/calendar", "title": "Tides"}])
+        self.admin = get_user_model().objects.create_user("owner", password="x", is_staff=True)
+
+    def publish(self, ics=POSTER):
+        self.broker.app_id = "events"
+        try:
+            img = self.broker._share("shares.put_blob", {"mime": "image/jpeg", "data_b64": self.b64(b"jpeg")})
+            main = self.broker._share("shares.put_blob", {"mime": "text/calendar", "data_b64": self.b64(ics.encode())})
+            self.broker._share("shares.publish", {"name": "events", "main": main["sha256"],
+                                                  "attachments": {"hero": img["sha256"]}})
+            return img["sha256"]
+        finally:
+            self.broker.app_id = "hub_calendar"
+
+    def feed(self):
+        return Feed.objects.create(name="Sun Peaks", source="app", provider="events", share_name="events")
+
+    def week(self, feed, origin="https://hub.local"):
+        return cal.occurrences(L("2025-09-08T00:00"), L("2025-09-15T00:00"), _Viewer(), [feed], origin)
+
+    def test_granted_share_shows_events_and_reuses_the_cache(self):
+        self.broker.grant_share("hub_calendar", "events", "events")
+        img = self.publish()
+        feed = self.feed()
+        self.assertTrue(cal.refresh_feed(feed))
+        feed.refresh_from_db()
+        self.assertEqual((feed.share_revision, feed.last_error), (1, ""))
+        [e] = self.week(feed)
+        self.assertEqual((e["title"], e["image"]), ("fest", f"https://hub.local/apps/_share/{img}"))
+        with patch.object(cal, "parse_ics") as parse:
+            self.assertTrue(cal.refresh_feed(feed))
+            self.assertEqual(len(self.week(feed)), 1)
+        parse.assert_not_called()
+        self.assertEqual(self.broker.ops("shares.open")[-1]["if_revision"], 1)
+
+    def test_revoked_share_is_an_error_not_a_crash(self):
+        self.broker.grant_share("hub_calendar", "events", "events")
+        self.publish()
+        feed = self.feed()
+        self.assertTrue(cal.refresh_feed(feed))
+        self.broker.revoke_share("hub_calendar", "events", "events")
+        self.assertFalse(cal.refresh_feed(feed))
+        feed.refresh_from_db()
+        self.assertEqual((feed.ics, feed.share_revision), ("", 0))
+        self.assertIn("no longer shared", feed.last_error)
+        self.assertEqual(self.week(feed), [])
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("hub_calendar_feeds")), "no longer shared")
+
+    def test_add_form_lists_only_granted_calendar_shares(self):
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("hub_calendar_feeds"))
+        self.assertContains(page, "No apps are sharing calendars with Calendar yet.")
+        self.broker.grant_share("hub_calendar", "events", "events")
+        self.broker.grant_share("hub_calendar", "events", "photos")
+        page = self.client.get(reverse("hub_calendar_feeds"))
+        self.assertContains(page, '<option value="events/events" data-title="Sun Peaks events">'
+                                  'Sun Peaks events — from events</option>', html=False)
+        self.assertNotContains(page, "events/photos")
+        self.assertNotContains(page, "tides/tides")
+        self.assertNotContains(page, "No apps are sharing")
+
+    def test_add_app_feed(self):
+        self.client.force_login(self.admin)
+        url = reverse("hub_calendar_feeds")
+        r = self.client.post(url, {"action": "add", "name": "Tides", "source": "app", "share": "tides/tides"})
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Feed.objects.exists())
+        self.broker.grant_share("hub_calendar", "events", "events")
+        self.publish()
+        r = self.client.post(url, {"action": "add", "name": "Village", "source": "app", "share": "events/events",
+                                   "url": "https://ignored.example/x"})
+        self.assertRedirects(r, url, fetch_redirect_response=False)
+        feed = Feed.objects.get()
+        self.assertEqual((feed.source, feed.provider, feed.share_name, feed.url, feed.share_revision),
+                         ("app", "events", "events", "", 1))
+        self.assertContains(self.client.get(url), "Sun Peaks events — from events")
+
+
+@override_settings(HUB_LOCATION=TZ)
+class PosterTests(TestCase):
+    def test_qr_code(self):
+        url = reverse("hub_calendar_api_qr")
+        r = self.client.get(url, {"u": "https://sunpeaksresort.com/events/fest"})
+        self.assertEqual((r.status_code, r["Content-Type"]), (200, "image/svg+xml"))
+        self.assertIn(b"<svg", r.content)
+        self.assertEqual(self.client.get(url, {"u": "javascript:alert(1)"}).status_code, 400)
+
+    def test_page_has_escaped_poster(self):
+        r = self.client.get(reverse("hub_calendar"))
+        self.assertContains(r, 'id="poster"')
+        self.assertContains(r, "Scan for details")
+        self.assertContains(r, "esc(e.notes)")
+
+    def test_event_text_reaches_the_page_as_json_data(self):
+        Feed.objects.create(name="X", ics=vcal(vevent("e", "20250913", "DESCRIPTION:<img src=x onerror=alert(1)>")),
+                            url="https://x", fetched_at=timezone.now())
+        with patch.object(cal, "kick_refresh", return_value=False):
+            r = self.client.get(reverse("hub_calendar_api_events"), {"start": "2025-09-13", "end": "2025-09-14"})
+        self.assertEqual(r["Content-Type"], "application/json")
+        self.assertEqual(r.json()["events"][0]["notes"], "<img src=x onerror=alert(1)>")
