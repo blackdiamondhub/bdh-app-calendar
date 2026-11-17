@@ -213,6 +213,9 @@
   .xcol { position: relative; overflow: hidden; touch-action: none; cursor: grab; border-radius: 12px; min-height: 0; min-width: 0;
     background-color: var(--card2); background-image: repeating-linear-gradient(180deg, transparent 0 calc(var(--h) - 1px), var(--line) calc(var(--h) - 1px) var(--h)); }
   .xcol.today { background-color: #213152; }
+  .xcol { --pk: 18px; }
+  /* Events scroll inside .xvp; the slim strips above/below it are kept for the peek pills so they never cover an event. */
+  .xvp { position: absolute; left: 0; right: 0; top: var(--pk); bottom: var(--pk); overflow: hidden; }
   .xcw { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
   .xnight { position: absolute; left: 0; right: 0; pointer-events: none; background: repeating-linear-gradient(135deg, rgba(10,18,40,.32) 0 6px, rgba(10,18,40,.18) 6px 12px); }
   .xhl { position: absolute; right: 5px; font-size: 10px; opacity: .55; pointer-events: none; }
@@ -225,23 +228,24 @@
   .xblk.xf { border: 1px dashed rgba(124,196,255,.7); background: rgba(124,196,255,.18); color: #e3f2ff; }
   .xblk.one { white-space: nowrap; display: flex; align-items: center; gap: 6px; padding-top: 0; padding-bottom: 0; }
   .xblk.one b, .xblk.one small { display: inline; min-width: 0; }
-  .xblk.one small { flex: none; }
+  .xblk.one small { flex: 0 1000 auto; min-width: 0; }
   .xblk.theirs { opacity: .55; }
   .xblk.sel { outline: 2px solid #fff; outline-offset: 1px; }
   .xnow { position: absolute; left: 0; right: 0; height: 2px; background: #ff5d5d; z-index: 20; pointer-events: none; }
   .xnow::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ff5d5d; }
   .xnow span { position: absolute; right: calc(100% + 7px); top: -8px; font-size: 10.5px; font-weight: 700; color: #fff; background: #e0484f; border-radius: 7px; padding: 1px 5px; white-space: nowrap; }
-  .xpeek { position: absolute; left: 4px; right: 4px; z-index: 26; font-size: 11px; padding: 2px 6px; border-radius: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  .xpeek { position: absolute; left: 4px; max-width: calc(100% - 8px); box-sizing: border-box; z-index: 26; font-size: 10.5px; height: calc(var(--pk) - 3px); line-height: calc(var(--pk) - 3px); padding: 0 7px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
     background: rgba(15,25,45,.8); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); display: none; }
-  .xpeek.t { top: 4px; } .xpeek.b { bottom: 4px; }
+  .xpeek.t { top: 1px; } .xpeek.b { bottom: 1px; }
   .xpeek.nw { background: #e0484f; }
   .xfab { position: absolute; right: 6px; bottom: 6px; z-index: 27; width: 34px; height: 34px; border: 0; border-radius: 50%; font-size: 19px; line-height: 34px; padding: 0; cursor: pointer;
     background: rgba(15,25,45,.85); color: #fff; box-shadow: 0 3px 10px rgba(0,0,0,.4); display: none; }
   .xcol.dty .xfab { display: block; }
   .xfab.f { background: #e0484f; }
   .xcol.fu .xfab { top: 6px; bottom: auto; }
-  .xcol.dty:not(.fu) .xpeek.b { right: 46px; bottom: 11px; }
-  .xcol.dty.fu .xpeek.t { right: 46px; top: 11px; }
+  .xcol.dty:not(.fu) .xpeek.b, .xcol.dty.fu .xpeek.t { max-width: calc(100% - 46px); }
+  .xplus { position: absolute; z-index: 5; box-sizing: border-box; border-radius: 7px; border: 1px dashed rgba(255,255,255,.55); background: rgba(255,255,255,.14);
+    font-size: 11.5px; font-weight: 700; text-align: center; padding-top: 3px; cursor: pointer; overflow: hidden; }
 
   /* week (Glass & Paper) */
   .xwk { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
@@ -274,7 +278,7 @@
   .xnone { opacity: .55; font-size: 13px; padding: 4px 0; }
   .xtrk { display: flex; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .75; padding-left: 60px; flex: none; white-space: nowrap; }
   .xtrk span:first-child { width: var(--yw); flex: none; }
-  .xday .xcol { flex: 1; border-radius: 16px; }
+  .xday .xcol { flex: 1; border-radius: 16px; --pk: 22px; }
   .xday .xhl { left: 10px; right: auto; font-size: 12px; opacity: .6; }
   .xday .xnow { left: 52px; }
   .xday .xblk { border-radius: 9px; padding: 5px 10px; font-size: 13px; line-height: 1.25; border-left-width: 4px; }
@@ -282,13 +286,11 @@
   .xday .xblk small { font-size: 12px; }
   .xday .xblk.xf { border-left-width: 1px; padding: 4px 8px; }
   .xday .xblk.xf b { font-size: 13px; }
-  .xday .xblk.one b { flex: 0 1 auto; max-width: 70%; }
-  .xday .xpeek { left: 60px; right: 8px; font-size: 12px; padding: 3px 10px; border-radius: 10px; }
-  .xday .xpeek.t { top: 6px; } .xday .xpeek.b { bottom: 6px; }
+  .xday .xblk.one b { flex: 0 1 auto; }
+  .xday .xpeek { left: 60px; max-width: calc(100% - 68px); font-size: 11.5px; padding: 0 10px; border-radius: 10px; }
   .xday .xfab { width: 40px; height: 40px; font-size: 21px; line-height: 40px; right: 8px; bottom: 8px; }
   .xday .xcol.fu .xfab { top: 8px; bottom: auto; }
-  .xday .xcol.dty:not(.fu) .xpeek.b { right: 56px; bottom: 6px; }
-  .xday .xcol.dty.fu .xpeek.t { right: 56px; top: 6px; }
+  .xday .xcol.dty:not(.fu) .xpeek.b, .xday .xcol.dty.fu .xpeek.t { max-width: calc(100% - 116px); }
   .xdside { width: 380px; flex: none; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   .xdet { border-radius: 18px; overflow: hidden; flex: none; cursor: pointer; background: var(--card); }
   .xhero { height: 150px; position: relative; overflow: hidden; flex: none; }
@@ -430,6 +432,7 @@
   .t-paper .xblk.sel { outline-color: #2b2a27; }
   .t-paper .xpeek, .t-paper .xfab { background: #2b2a27; color: #fff; }
   .t-paper .xpeek.nw, .t-paper .xfab.f { background: #e0484f; }
+.t-paper .xplus { border-color: #9a9488; background: rgba(43,42,39,.06); color: #2b2a27; }
   .t-paper .xadbar { background: color-mix(in srgb, var(--c) 55%, #fff); color: #3b2d55; }
   .t-paper .xadbar.more { background: #fbf8f1; color: #2b2a27; }
   .t-paper .xtrk, .t-paper .xnone, .t-paper .xdw { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
@@ -486,11 +489,12 @@
     .xhl { font-size: 8.5px; right: 2px; }
     .xblk { font-size: 10px; padding: 2px 3px; }
     .xblk b { font-size: 10.5px; }
-    .xpeek { left: 2px; right: 2px; font-size: 9.5px; padding: 1px 3px; }
+    .xcol { --pk: 15px; }
+    .xpeek { left: 2px; max-width: calc(100% - 4px); font-size: 9.5px; padding: 0 3px; }
+    .xplus { font-size: 9.5px; padding-top: 1px; border-radius: 5px; letter-spacing: -.5px; }
     .xfab { width: 26px; height: 26px; font-size: 15px; line-height: 26px; right: 3px; bottom: 3px; }
     .xcol.fu .xfab { top: 3px; }
-    .xcol.dty:not(.fu) .xpeek.b { right: 31px; bottom: 5px; }
-    .xcol.dty.fu .xpeek.t { right: 31px; top: 5px; }
+    .xcol.dty:not(.fu) .xpeek.b, .xcol.dty.fu .xpeek.t { max-width: calc(100% - 31px); }
     .xstrip { gap: 3px; }
     .xsd { padding: 4px; flex-direction: column; gap: 0; border-radius: 9px; }
     .xsd .n { font-size: 16px; } .xsd .d { font-size: 9.5px; letter-spacing: .04em; }
@@ -498,7 +502,9 @@
     .xday .xhl { left: 5px; font-size: 10px; }
     .xday .xnow { left: 40px; }
     .xday .xnow span { right: calc(100% + 3px); font-size: 9px; padding: 1px 3px; letter-spacing: -.2px; }
-    .xday .xpeek { left: 44px; }
+    .xday .xcol { --pk: 20px; }
+    .xday .xpeek { left: 44px; max-width: calc(100% - 48px); }
+    .xday .xcol.dty:not(.fu) .xpeek.b, .xday .xcol.dty.fu .xpeek.t { max-width: calc(100% - 96px); }
     .xday .xblk b { font-size: 13px; }
   }
 </style>
@@ -763,8 +769,8 @@
   }
   // Overlap lanes: x.l = lane, x.n = lanes used by its overlap cluster.
   function lanes(list) {
-    var cl = [], ends = [], end = -1;
-    function flush() { cl.forEach(function (x) { x.n = ends.length; }); cl = []; ends = []; }
+    var cl = [], ends = [], end = -1, cid = 0;
+    function flush() { cl.forEach(function (x) { x.n = ends.length; x.c = cid; }); cl = []; ends = []; cid++; }
     list.forEach(function (x) {
       if (x.t >= end) { flush(); end = -1; }
       var l = 0;
@@ -781,9 +787,36 @@
       x.x = x0 + x.l * st; x.w = w;
     });
   }
+  // Week columns: side by side while every lane is at least minW wide (room for a name); otherwise
+  // keep as many lanes as fit and fold the rest of that overlap cluster into one "+N" chip.
+  function fitLanes(list, x0, avail, minW, cw) {
+    var byC = {}, chips = [];
+    list.forEach(function (x) { (byC[x.c] = byC[x.c] || []).push(x); });
+    Object.keys(byC).forEach(function (c) {
+      var cl = byC[c], n = cl[0].n;
+      if (avail / n >= minW) return cl.forEach(function (x) { x.w = avail / n; x.x = x0 + x.l * x.w; });
+      var m = Math.max(1, Math.floor((avail - cw) / minW)), lw = (avail - cw) / m, hid = [];
+      cl.forEach(function (x) {
+        if (x.l < m) { x.w = lw; x.x = x0 + x.l * lw; } else { x.hide = true; hid.push(x); }
+      });
+      chips.push({ n: hid.length, first: hid[0].e.id, x: x0 + m * lw, w: cw,
+        t: Math.min.apply(null, hid.map(function (x) { return x.t; })), u: Math.max.apply(null, hid.map(function (x) { return x.u; })) });
+    });
+    return chips;
+  }
+  function pkH(el) { return parseFloat(getComputedStyle(el).getPropertyValue('--pk')) || 0; }
   function blk(x, H, cls, style, inner) {
     return '<div class="xblk' + (x.app ? ' xf' : '') + (theirs(x.e) ? ' theirs' : '') + (x.e.id === daySel && state.view === 'day' ? ' sel' : '') + cls +
       '" data-ev="' + esc(x.e.id) + '" style="--c:' + esc(x.e.color) + ';top:' + (x.t * H + 2) + 'px;height:' + Math.max(14, (x.u - x.t) * H - 4) + 'px;' + style + '">' + inner + '</div>';
+  }
+  // A wrapped name that would push the time out of its block is held to the lines that fit.
+  function fitTitles(root) {
+    root.querySelectorAll('.xblk:not(.one)').forEach(function (el) {
+      var b = el.querySelector('b'), s = el.querySelector('small'), cs = getComputedStyle(el), lh = parseFloat(getComputedStyle(b).lineHeight) || 15,
+          room = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - (s ? s.offsetHeight : 0), n = Math.max(1, Math.floor(room / lh + .1));
+      if (b.offsetHeight <= n * lh + 1) return;
+      if (n === 1) b.style.whiteSpace = 'nowrap'; else b.style.maxHeight = n * lh + 'px';
+    });
   }
   function gridSkel(H, day) {
     var h = '<div class="xnight" style="top:0;height:' + S * H + 'px"></div><div class="xnight" style="top:' + E * H + 'px;height:' + (24 - E) * H + 'px"></div>';
@@ -793,7 +826,8 @@
   // Drag/wheel-scrollable 24h column with peeks, directional reset button and now-follow.
   function timeGrid(col, o) {
     var wrap = col.querySelector('.xcw'), pt = col.querySelector('.xpeek.t'), pb = col.querySelector('.xpeek.b'),
-        fab = col.querySelector('.xfab'), nl = col.querySelector('.xnow'), H = o.H, VH = col.clientHeight,
+        fab = col.querySelector('.xfab'), nl = col.querySelector('.xnow'), vp = col.querySelector('.xvp'), H = o.H, VH = vp.clientHeight, P = vp.offsetTop,
+        hls = nl && nl.firstChild ? wrap.querySelectorAll('.xhl') : [],
         MX = Math.max(0, 24 * H - VH), off = 0, dirty = false, anim = 0, up = [], dn = [];
     function clamp(v) { return Math.max(0, Math.min(MX, v)); }
     function home() {
@@ -822,7 +856,7 @@
     function upd() {
       col.classList.toggle('fu', dirty && off < home() - 1);
       wrap.style.transform = 'translateY(' + (-off) + 'px)';
-      col.style.backgroundPosition = '0 ' + (-off) + 'px';
+      col.style.backgroundPosition = '0 ' + (P - off) + 'px';
       up = o.items.filter(function (x) { return x.t * H + H * .7 < off; });
       dn = o.items.filter(function (x) { return x.t * H > off + VH - 8; });
       var n = o.today ? nowH() : 0, ny = n * H;
@@ -831,6 +865,8 @@
       if (nl) {
         nl.style.top = ny + 'px';
         if (nl.firstChild) nl.firstChild.textContent = fmt(Math.floor(n * 12) / 12);
+        // Like the mockup: the hour label under the now pill steps aside.
+        for (var i = 0; i < hls.length; i++) hls[i].style.visibility = Math.abs(i * H + 10 - ny) < 17 ? 'hidden' : '';
       }
     }
     pt.onclick = function (ev) { ev.stopPropagation(); if (pt.classList.contains('nw')) return reset(); setD(true); glide(up[0].t * H - 20); };
@@ -839,7 +875,7 @@
     // Drag only takes over after a 4px move, so taps on events still open them.
     var sy = null, so = 0, moved = false;
     col.addEventListener('pointerdown', function (ev) {
-      if (ev.button > 0 || ev.target.closest('.xpeek,.xfab')) return;
+      if (ev.button > 0 || ev.target.closest('.xpeek,.xfab,.xplus')) return;
       sy = ev.clientY; so = off; moved = false; cancelAnimationFrame(anim);
     });
     col.addEventListener('pointermove', function (ev) {
@@ -862,10 +898,10 @@
     // Empty-slot tap opens "new event" at that hour; a double tap resets the column instead.
     var tap = 0;
     col.addEventListener('click', function (ev) {
-      if (ev.target.closest('[data-ev],.xpeek,.xfab')) return;
+      if (ev.target.closest('[data-ev],.xpeek,.xfab,.xplus')) return;
       ev.stopPropagation();
       if (tap) { clearTimeout(tap); tap = 0; return reset(); }
-      var y = ev.clientY - col.getBoundingClientRect().top + off;
+      var y = ev.clientY - vp.getBoundingClientRect().top + off;
       tap = setTimeout(function () {
         tap = 0;
         var s = parse(o.key); s.setHours(Math.max(0, Math.min(23, Math.floor(y / H))));
@@ -881,8 +917,8 @@
     });
   }
   function colShell(H, inner, today, day) {
-    return '<div class="xcw" style="height:' + 24 * H + 'px">' + gridSkel(H, day) + inner +
-      (today ? '<div class="xnow">' + (day ? '<span></span>' : '') + '</div>' : '') + '</div>' +
+    return '<div class="xvp"><div class="xcw" style="height:' + 24 * H + 'px">' + gridSkel(H, day) + inner +
+      (today ? '<div class="xnow">' + (day ? '<span></span>' : '') + '</div>' : '') + '</div></div>' +
       '<div class="xpeek t"></div><div class="xpeek b"></div><button class="xfab' + (today ? ' f' : '') + '" title="' + (today ? 'Back to now' : 'Reset') + '">↻</button>';
   }
   function peekItems(items) {
@@ -916,19 +952,23 @@
       cols += '<div class="xcol' + (k === tk ? ' today' : '') + '" data-day="' + k + '"></div>';
     }
     main.innerHTML = '<div class="xwk"><div class="xwr">' + hd + '</div><div class="xad">' + allDayBars(evs, w, 2) + '</div><div class="xbody">' + cols + '</div></div>';
-    var body = main.querySelector('.xbody'), H = body.clientHeight / (E - S);
+    var body = main.querySelector('.xbody'), H = (body.clientHeight - 2 * pkH(body.firstChild)) / (E - S);
     main.querySelectorAll('.xbody .xcol').forEach(function (col) {
       var k = col.dataset.day, d = parse(k), items = timedOn(onDay(evs, d), d), W = col.clientWidth, mob = W < 80;
       lanes(items);
-      place(items, mob ? 1 : 3, W - (mob ? 2 : 6), mob ? 22 : 36);
-      var inner = items.map(function (x) {
-        var h = (x.u - x.t) * H, tm = x.cont ? '↳' : hm(parse(x.e.start), true);
-        return blk(x, H, h < 34 ? ' one' : '', 'left:' + x.x + 'px;width:' + (x.w - 2) + 'px',
-          '<b>' + (x.app ? '🎿 ' : '') + esc(x.e.title) + '</b><small>' + tm + '</small>');
+      var more = fitLanes(items, mob ? 1 : 3, W - (mob ? 2 : 6), mob ? 30 : 44, mob ? 18 : 26);
+      var inner = items.filter(function (x) { return !x.hide; }).map(function (x) {
+        var h = (x.u - x.t) * H, one = h < 34, tm = x.cont ? '↳' : hm(parse(x.e.start), true);
+        return blk(x, H, one ? ' one' : '', 'left:' + x.x + 'px;width:' + (x.w - 2) + 'px',
+          '<b>' + (x.app ? '🎿 ' : '') + esc(x.e.title) + '</b>' + (one && x.w < 90 ? '' : '<small>' + tm + '</small>'));
+      }).join('') + more.map(function (m) {
+        return '<div class="xplus" data-day="' + k + '" data-first="' + esc(m.first) + '" title="' + m.n + ' more" style="top:' + (m.t * H + 2) + 'px;height:' + Math.max(18, (m.u - m.t) * H - 4) +
+          'px;left:' + m.x + 'px;width:' + (m.w - 2) + 'px">+' + m.n + '</div>';
       }).join('');
       col.style.setProperty('--h', H + 'px');
       col.innerHTML = colShell(H, inner, k === tk, false);
       timeGrid(col, { H: H, key: k, today: k === tk, items: peekItems(items), mk: 'week:' + k });
+      fitTitles(col);
     });
   }
 
@@ -949,7 +989,7 @@
     main.innerHTML = '<div class="xday"><div class="xstrip">' + strip + '</div><div class="xdm"><div class="xgbox"><div class="xdad">' + ad + '</div>' +
       '<div class="xtrk"><span>Yours</span><span>🎿 Community</span></div><div class="xcol' + (isT ? ' today' : '') + '" data-day="' + k + '"></div></div>' +
       '<div class="xdside"><div class="xdet"></div><div class="xlst"></div></div></div></div>';
-    var col = main.querySelector('.xday .xcol'), VH = col.clientHeight, W = col.clientWidth, H = VH / (E - S),
+    var col = main.querySelector('.xday .xcol'), VH = col.clientHeight - 2 * pkH(col), W = col.clientWidth, H = VH / (E - S),
         G = W < 500 ? 44 : 60, YW = (W - G) * .58, items = timedOn(list, d), n = nowH();
     main.querySelector('.xtrk').style.setProperty('--yw', YW + 'px');
     var own = items.filter(function (x) { return !x.app; }), app = items.filter(function (x) { return x.app; });
@@ -974,6 +1014,7 @@
     col.style.setProperty('--h', H + 'px');
     col.innerHTML = colShell(H, inner, isT, true);
     timeGrid(col, { H: H, key: k, today: isT, items: peekItems(items), mk: 'day:' + k });
+    fitTitles(col);
     dayItems = items; dayIsT = isT;
     daySide();
   }
@@ -1214,6 +1255,8 @@
     var e = ev.target.closest('[data-ev]');
     if (e) { ev.stopPropagation(); return openPop(e.dataset.ev); }
     if (ev.target.closest('.xx')) { monSel = null; return render(); }
+    var pl = ev.target.closest('.xplus');
+    if (pl) { daySel = pl.dataset.first; return go('day', parse(pl.dataset.day)); }
     if (ev.target.closest('.xopen')) { var k = monSel; monSel = null; daySel = null; return go('day', parse(k)); }
     var hd = ev.target.closest('.xwh[data-day],.xsd[data-day]');
     if (hd) { if (hd.dataset.day !== dkey(state.anchor)) daySel = null; return go('day', parse(hd.dataset.day)); }
