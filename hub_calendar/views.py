@@ -19,16 +19,24 @@ log = logging.getLogger(__name__)
 
 MAX_RANGE_DAYS = 120
 SCOPES = ("one", "following", "all")
+VIEWS = ("month", "week", "day", "agenda")
+THEMES = ("glass", "paper", "classic")
 
 
 # ---- page ------------------------------------------------------------------
+
+def _choice(value, allowed, default):
+    value = str(value or "").strip().lower()
+    return value if value in allowed else default
+
 
 def calendar_page(request):
     viewer = cal.Viewer(request)
     config = {
         "api": reverse("hub_calendar_api_events"),
         "qr": reverse("hub_calendar_api_qr"),
-        "view": app_setting(cal.APP, "default_view", "month"),
+        "view": _choice(app_setting(cal.APP, "default_view", "month"), VIEWS, "month"),
+        "theme": _choice(app_setting(cal.APP, "theme", "glass"), THEMES, "glass"),
         "weekStart": 1 if app_setting(cal.APP, "week_start", "sun") == "mon" else 0,
         "guest": viewer.guest,
         "admin": viewer.admin,
@@ -83,7 +91,7 @@ def api_events(request):
     return JsonResponse({
         "events": events,
         "feeds": [{"id": f"feed:{f.id}", "name": f.name, "color": f.color,
-                   "error": bool(f.last_error)} for f in feeds],
+                   "error": bool(f.last_error), "app": f.source == "app"} for f in feeds],
         "hub": {"id": "hub", "name": "Added on the hub", "color": cal.hub_color()},
         "people": [{"id": p.id, "name": p.name, "initials": p.initials, "color": p.color}
                    for p in Person.objects.all()],

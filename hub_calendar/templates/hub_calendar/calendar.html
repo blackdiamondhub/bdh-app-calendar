@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block navbar_title %}Calendar{% endblock %}
+{% block body_class %}t-{{ config.theme }}{% endblock %}
 
 {% block content %}
 <style>
@@ -207,6 +208,320 @@
     .wev { font-size: 10.5px; padding: 2px 3px; }
     .wmark span { padding: 2px 5px; font-size: 11px; }
   }
+
+  /* ===== time grid (day view in every look; week view in Glass & Paper) ===== */
+  .xcol { position: relative; overflow: hidden; touch-action: none; cursor: grab; border-radius: 12px; min-height: 0; min-width: 0;
+    background-color: var(--card2); background-image: repeating-linear-gradient(180deg, transparent 0 calc(var(--h) - 1px), var(--line) calc(var(--h) - 1px) var(--h)); }
+  .xcol.today { background-color: #213152; }
+  .xcol { --pk: 18px; }
+  /* Events scroll inside .xvp; the slim strips above/below it are kept for the peek pills so they never cover an event. */
+  .xvp { position: absolute; left: 0; right: 0; top: var(--pk); bottom: var(--pk); overflow: hidden; }
+  .xcw { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+  .xnight { position: absolute; left: 0; right: 0; pointer-events: none; background: repeating-linear-gradient(135deg, rgba(10,18,40,.32) 0 6px, rgba(10,18,40,.18) 6px 12px); }
+  .xhl { position: absolute; right: 5px; font-size: 10px; opacity: .55; pointer-events: none; }
+  .xhl.n::before { content: "\263E  "; }
+  .xsep { position: absolute; top: 0; border-left: 1px dashed rgba(255,255,255,.18); pointer-events: none; }
+  .xblk { position: absolute; border-radius: 7px; padding: 3px 6px; font-size: 12px; line-height: 1.2; overflow: hidden; cursor: pointer;
+    border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 30%, #18243a); }
+  .xblk b { display: block; font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
+  .xblk small { display: block; opacity: .75; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .xblk.xf { border: 1px dashed rgba(124,196,255,.7); background: rgba(124,196,255,.18); color: #e3f2ff; }
+  .xblk.one { white-space: nowrap; display: flex; align-items: center; gap: 6px; padding-top: 0; padding-bottom: 0; }
+  .xblk.one b, .xblk.one small { display: inline; min-width: 0; }
+  .xblk.one small { flex: 0 1000 auto; min-width: 0; }
+  .xblk.theirs { opacity: .55; }
+  .xblk.sel { outline: 2px solid #fff; outline-offset: 1px; }
+  .xnow { position: absolute; left: 0; right: 0; height: 2px; background: #ff5d5d; z-index: 20; pointer-events: none; }
+  .xnow::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ff5d5d; }
+  .xnow span { position: absolute; right: calc(100% + 7px); top: -8px; font-size: 10.5px; font-weight: 700; color: #fff; background: #e0484f; border-radius: 7px; padding: 1px 5px; white-space: nowrap; }
+  .xpeek { position: absolute; left: 4px; max-width: calc(100% - 8px); box-sizing: border-box; z-index: 26; font-size: 10.5px; height: calc(var(--pk) - 3px); line-height: calc(var(--pk) - 3px); padding: 0 7px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+    background: rgba(15,25,45,.8); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); display: none; }
+  .xpeek.t { top: 1px; } .xpeek.b { bottom: 1px; }
+  .xpeek.nw { background: #e0484f; }
+  .xfab { position: absolute; right: 6px; bottom: 6px; z-index: 27; width: 34px; height: 34px; border: 0; border-radius: 50%; font-size: 19px; line-height: 34px; padding: 0; cursor: pointer;
+    background: rgba(15,25,45,.85); color: #fff; box-shadow: 0 3px 10px rgba(0,0,0,.4); display: none; }
+  .xcol.dty .xfab { display: block; }
+  .xfab.f { background: #e0484f; }
+  .xcol.fu .xfab { top: 6px; bottom: auto; }
+  .xcol.dty:not(.fu) .xpeek.b, .xcol.dty.fu .xpeek.t { max-width: calc(100% - 46px); }
+  .xplus { position: absolute; z-index: 5; box-sizing: border-box; border-radius: 7px; border: 1px dashed rgba(255,255,255,.55); background: rgba(255,255,255,.14);
+    font-size: 11.5px; font-weight: 700; text-align: center; padding-top: 3px; cursor: pointer; overflow: hidden; }
+
+  /* week (Glass & Paper) */
+  .xwk { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+  .xwr, .xad, .xbody { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); column-gap: 10px; }
+  .xwh { border-radius: 14px; padding: 6px 10px; display: flex; align-items: baseline; gap: 8px; cursor: pointer; min-width: 0; overflow: hidden; white-space: nowrap; background: var(--card2); }
+  .xwh .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
+  .xwh .d { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; opacity: .8; }
+  .xwh.today { background: var(--acc); color: #0c1622; }
+  .xad { row-gap: 3px; grid-auto-rows: 24px; }
+  .xad:empty { display: none; }
+  .xadbar { border-radius: 7px; background: var(--c); color: #14202e; font-weight: 600; font-size: 13px; padding: 3px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; min-width: 0; }
+  .xadbar.more { background: rgba(255,255,255,.18); color: inherit; font-weight: 500; }
+  .xadbar.theirs { opacity: .55; }
+  .xbody { flex: 1; min-height: 0; }
+
+  /* day */
+  .xday { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .xstrip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; flex: none; }
+  .xps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; flex: none; margin-bottom: -3px; }
+  .xpd { border-radius: 8px; padding: 2px 0 3px; text-align: center; cursor: pointer; line-height: 1.15; opacity: .7; }
+  .xpd .d { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+  .xpd .n { display: block; font-size: 14px; font-weight: 700; }
+  .xpd.vis { opacity: 1; background: var(--card2); }
+  .xpd.today .n { color: #ff6b6b; }
+  .xpdots { display: flex; justify-content: center; gap: 2px; height: 4px; margin-top: 2px; }
+  .xpdots i { width: 4px; height: 4px; border-radius: 50%; background: var(--c); }
+  .xpdots i.f { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+  .xsd { border-radius: 12px; padding: 5px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 0; overflow: hidden; white-space: nowrap; background: var(--card2); }
+  .xsd .n { font-size: 20px; font-weight: 700; }
+  .xsd .d { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; opacity: .8; }
+  .xsd.on { background: var(--acc); color: #0c1622; }
+  .xsd.today .n { color: #ff6b6b; }
+  .xdots { margin-left: auto; display: flex; gap: 3px; align-items: center; font-size: 11px; white-space: nowrap; }
+  .xdots i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); display: block; }
+  .xdm { flex: 1; display: flex; gap: 14px; min-height: 0; }
+  .xgbox { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .xdad { display: flex; gap: 6px; flex-wrap: wrap; min-height: 26px; max-height: 58px; overflow: hidden; flex: none; }
+  .xdad .xadbar { padding: 4px 12px; }
+  .xnone { opacity: .55; font-size: 13px; padding: 4px 0; }
+  .xtrk { display: flex; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .75; padding-left: 60px; flex: none; white-space: nowrap; }
+  .xtrk span:first-child { width: var(--yw); flex: none; }
+  .xday .xcol { flex: 1; border-radius: 16px; --pk: 22px; }
+  .xday .xhl { left: 10px; right: auto; font-size: 12px; opacity: .6; }
+  .xday .xnow { left: 52px; }
+  .xday .xblk { border-radius: 9px; padding: 5px 10px; font-size: 13px; line-height: 1.25; border-left-width: 4px; }
+  .xday .xblk b { font-size: 15px; }
+  .xday .xblk small { font-size: 12px; }
+  .xday .xblk.xf { border-left-width: 1px; padding: 4px 8px; }
+  .xday .xblk.xf b { font-size: 13px; }
+  .xday .xblk.one b { flex: 0 1 auto; }
+  .xday .xpeek { left: 60px; max-width: calc(100% - 68px); font-size: 11.5px; padding: 0 10px; border-radius: 10px; }
+  .xday .xfab { width: 40px; height: 40px; font-size: 21px; line-height: 40px; right: 8px; bottom: 8px; }
+  .xday .xcol.fu .xfab { top: 8px; bottom: auto; }
+  .xday .xcol.dty:not(.fu) .xpeek.b, .xday .xcol.dty.fu .xpeek.t { max-width: calc(100% - 116px); }
+  .xdside { width: 380px; flex: none; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .xdet { border-radius: 18px; overflow: hidden; flex: none; cursor: pointer; background: var(--card); }
+  .xhero { height: 150px; position: relative; overflow: hidden; flex: none; }
+  .xhimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .xhero .big { position: absolute; left: 16px; bottom: 10px; font-size: 44px; font-weight: 200; line-height: 1; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  .xhero .tag { position: absolute; left: 12px; top: 10px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #fff; background: rgba(0,0,0,.4); padding: 3px 8px; border-radius: 8px; }
+  .xqr { position: absolute; right: 12px; bottom: 12px; width: 72px; height: 72px; border-radius: 6px; background: #fff; padding: 4px; line-height: 0; }
+  .xqr img { width: 100%; height: 100%; }
+  .xdt { padding: 12px 16px 14px; }
+  .xdt h2 { margin: 0 0 4px; font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+  .xdt .w { font-size: 14px; opacity: .85; }
+  .xdt .w + .w { margin-top: 2px; }
+  .xdt p { margin: 8px 0 0; font-size: 13px; opacity: .75; line-height: 1.35; }
+  .xlst { border-radius: 18px; padding: 10px 12px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; background: var(--card); }
+  .xlst h3 { margin: 0 0 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; font-weight: 600; }
+  .xli { display: flex; gap: 10px; align-items: center; font-size: 14px; padding: 5px 6px; border-radius: 9px; cursor: pointer; flex: none; }
+  .xli small { width: 48px; flex: none; opacity: .7; font-size: 12px; }
+  .xli i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+  .xli span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xli.sel { background: rgba(255,255,255,.14); }
+  .xli.past { opacity: .45; }
+
+  /* month (Glass & Paper) */
+  .xmon { flex: 1; display: flex; gap: 18px; min-height: 0; position: relative; }
+  .xg { flex: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 11px; min-height: 0; min-width: 0; }
+  .xdw { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; opacity: .85; padding-left: 10px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .xc { overflow: hidden; display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 0; position: relative; cursor: pointer; }
+  .xc.sel { z-index: 3; }
+  .xn { font-size: 19px; font-weight: 600; flex: none; }
+  .xe { font-size: 12.5px; white-space: nowrap; overflow: hidden; display: flex; align-items: center; gap: 5px; flex: none; min-width: 0; }
+  .xe span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .xe i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+  .xe small { opacity: .75; flex: none; }
+  .xe .ic { font-size: 11px; flex: none; }
+  .xe.theirs { opacity: .55; }
+  .xmore { font-size: 12px; opacity: .7; flex: none; }
+  .xfl { margin-top: auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: none; }
+  .xfl .xe { font-size: 12px; font-weight: 600; }
+  .xfd { margin-top: auto; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; border-radius: 8px; padding: 2px 7px; align-self: flex-start; flex: none; white-space: nowrap; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+  .xpan { width: 380px; flex: none; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; position: relative; }
+  .xph { display: flex; align-items: baseline; gap: 12px; flex: none; }
+  .xph .big { font-size: 56px; font-weight: 700; line-height: 1; }
+  .xph .dw { font-size: 18px; opacity: .85; }
+  .xph .xx { margin-left: auto; font-size: 22px; opacity: .6; background: none; border: 0; color: inherit; cursor: pointer; }
+  .xsec { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .65; margin-top: 6px; flex: none; }
+  .xit { display: flex; gap: 10px; align-items: center; border-radius: 12px; padding: 9px 11px; border-left: 4px solid var(--c); cursor: pointer; flex: none; }
+  .xit small { width: 52px; opacity: .7; font-size: 13px; flex: none; }
+  .xit div { font-size: 15px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xit .chev { flex: none; opacity: .4; }
+  .xpan .xhero { height: 110px; border-radius: 12px; cursor: pointer; background: linear-gradient(135deg, #5b8fd6, #9a6be0); }
+  .xpan .xhero span { position: absolute; left: 12px; right: 12px; bottom: 9px; font-weight: 700; font-size: 16px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .xpan .xhero small { position: absolute; left: 12px; top: 9px; font-size: 12px; color: #fff; background: rgba(0,0,0,.4); padding: 2px 8px; border-radius: 8px; }
+  .xopen { margin-top: auto; align-self: flex-end; border: 0; border-radius: 12px; padding: 9px 16px; font: inherit; font-size: 15px; cursor: pointer; background: rgba(255,255,255,.16); color: inherit; flex: none; }
+  .xth { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 12px; border-radius: 12px; margin-left: auto; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .xth[hidden] { display: none; }
+  .xth b { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+  .xth + .ctabs { margin-left: 0; }
+
+  /* ===== Glass & Paper chrome ===== */
+  body.t-glass, body.t-paper { color: #fff; }
+  body.t-glass { background: #1b2a3c url("{% static 'hub_calendar/bierstadt.webp' %}") center / cover fixed !important; }
+  body.t-paper { background: #6b7f8f url("{% static 'hub_calendar/monet.webp' %}") center / cover fixed !important; }
+  body.t-glass::before, body.t-paper::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.05) 30%, rgba(0,0,0,.25)); }
+  body.t-paper::before { background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,0) 30%, rgba(0,0,0,.12)); }
+  #cal.fx { padding: 22px 28px 18px; gap: 12px; }
+  #cal.fx .ct { gap: 14px; }
+  #cal.fx .cnav { width: 42px; height: 42px; font-size: 26px; background: rgba(0,0,0,.28); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff !important; }
+  #cal.fx .cbtn { background: rgba(0,0,0,.28); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; font-size: 15px; padding: 9px 15px; }
+  #cal.fx .cadd { background: #3fbf7f !important; color: #08160f !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  #cal.fx .ctabs { background: rgba(0,0,0,.28); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-radius: 14px; padding: 4px; }
+  #cal.fx .ctabs button { color: #fff; font-size: 15px; font-weight: 500; padding: 8px 16px; }
+  #cal.fx .ctabs button.on { background: rgba(255,255,255,.9); color: #111; font-weight: 600; }
+  #cal.fx .cttl { min-width: 0; flex: none; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #cal.fx .cadd { white-space: nowrap; }
+  #cal.fx .cfilt { display: flex; }
+  #cal.fx .side { display: none; position: absolute; z-index: 40; top: 74px; left: 28px; max-height: 70vh; width: 250px; padding: 12px; border-radius: 16px; }
+  #cal.fx.showside .side { display: block; }
+  #cal.fx .banner { background: rgba(0,0,0,.3); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; }
+  #cal.fx .sarr { background: none; }
+  #cal.fx .ag-in { max-width: 820px; border-radius: 22px; padding: 6px 18px 14px; }
+
+  .t-glass .cttl { font-size: 38px; font-weight: 300; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+  .t-glass .cttl b { font-weight: 700; }
+  .t-glass .side, .t-glass .xpan, .t-glass .ag-in { background: rgba(14,22,36,.55); -webkit-backdrop-filter: blur(22px) saturate(1.3); backdrop-filter: blur(22px) saturate(1.3); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .t-glass .xth { background: rgba(0,0,0,.28); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .t-glass .xc, .t-glass .xwh, .t-glass .xcol, .t-glass .xsd, .t-glass .xdet, .t-glass .xlst {
+    background-color: rgba(255,255,255,.13); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    border: 1px solid rgba(255,255,255,.22); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .t-glass .xdet, .t-glass .xlst { background-color: rgba(14,22,36,.42); }
+  .t-glass .xcol { background-image: repeating-linear-gradient(180deg, transparent 0 calc(var(--h) - 1px), rgba(255,255,255,.12) calc(var(--h) - 1px) var(--h)); }
+  .t-glass .xcol.today { background-color: rgba(255,255,255,.26); }
+  .t-glass .xhl { color: #fff; }
+  .t-glass .xwh.today, .t-glass .xsd.on { background: rgba(255,255,255,.82); color: #14202e; }
+  .t-glass .xwh .n, .t-glass .xsd .n { text-shadow: 0 1px 6px rgba(0,0,0,.35); }
+  .t-glass .xwh.today .n, .t-glass .xsd.on .n { text-shadow: none; }
+  .t-glass .xblk { background: color-mix(in srgb, var(--c) 55%, rgba(14,22,36,.6)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; }
+  .t-glass .xblk.xf { background: rgba(124,196,255,.22); border: 1px dashed rgba(124,196,255,.7); color: #e3f2ff; }
+  .t-glass .xsep { border-color: rgba(255,255,255,.18); }
+  .t-glass .xtrk, .t-glass .xdw, .t-glass .xnone { text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .t-glass .xc { border-radius: 16px; padding: 7px 9px; }
+  .t-glass .xc.out { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); box-shadow: none; }
+  .t-glass .xc.out .xn { opacity: .45; }
+  .t-glass .xn { text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+  .t-glass .xc.stay { box-shadow: inset 0 -3px 0 rgba(124,196,255,.8), 0 10px 30px rgba(0,0,0,.25); }
+  .t-glass .xc.today { background: rgba(255,255,255,.82); color: #14202e; box-shadow: 0 18px 40px rgba(0,0,0,.4), 0 0 0 2px #fff; }
+  .t-glass .xc.today .xn { text-shadow: none; }
+  .t-glass .xc.sel { box-shadow: 0 0 0 3px #7cc4ff, 0 0 30px rgba(124,196,255,.7); background: rgba(124,196,255,.28); }
+  .t-glass .xe i { box-shadow: 0 0 6px var(--c); }
+  .t-glass .xbar, .t-paper .xbar { border-radius: 6px; padding: 1px 7px; font-weight: 600; margin: 0 -9px; }
+  .t-glass .xbar { background: var(--c); color: #14202e; }
+  .t-glass .xbar.f { margin-left: 0; } .t-glass .xbar.l { margin-right: 0; }
+  .t-glass .xfd { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3); }
+  .t-glass .xc.today .xfd { background: rgba(20,32,46,.1); border-color: rgba(20,32,46,.2); }
+  .t-glass .xit { background: rgba(255,255,255,.09); }
+  .t-glass .adh { color: #bfe1ff; }
+  .t-glass .arow { background: rgba(255,255,255,.09); }
+  .t-glass .arow small, .t-glass .atime { color: rgba(255,255,255,.7); }
+
+  .t-paper .cttl { font-family: Georgia, serif; font-style: italic; font-size: 42px; font-weight: 400; text-shadow: 0 3px 14px rgba(0,0,0,.45); }
+  .t-paper .cttl b { font-weight: 400; }
+  .t-paper .side, .t-paper .xpan, .t-paper .ag-in { background: #fbf8f1; color: #2b2a27; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .t-paper .side { --mut: #6f6a60; --acc: #2d6aa8; }
+  .t-paper .side .lg:hover { background: rgba(0,0,0,.05); }
+  .t-paper .side .lg.pick.on { background: #f1e9d6; }
+  .t-paper .xpan { border-radius: 6px; transform: rotate(.6deg); overflow: visible; }
+  .t-paper .xpan::before { content: ""; position: absolute; top: -6px; left: 50%; width: 90px; height: 22px; margin-left: -45px; background: rgba(255,255,255,.6); transform: rotate(-2deg); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .t-paper .xth { background: rgba(251,248,241,.88); color: #2b2a27; font-family: Georgia, serif; }
+  .t-paper .xc, .t-paper .xwh, .t-paper .xcol, .t-paper .xsd, .t-paper .xdet, .t-paper .xlst { background-color: #fbf8f1; color: #2b2a27; box-shadow: 0 8px 18px rgba(0,0,0,.28); border-radius: 4px; }
+  .t-paper .xcol { background-image: repeating-linear-gradient(180deg, transparent 0 calc(var(--h) - 1px), #e6dfcf calc(var(--h) - 1px) var(--h)); }
+  .t-paper .xcol.today { background-color: #fff8d6; }
+  .t-paper .xnight { background: repeating-linear-gradient(135deg, rgba(40,50,80,.13) 0 6px, rgba(40,50,80,.06) 6px 12px); }
+  .t-paper .xsep { border-color: #d8cfbb; }
+  .t-paper .xwh .n, .t-paper .xsd .n { font-family: Georgia, serif; font-weight: 400; color: #3d4a5c; }
+  .t-paper .xwh .d, .t-paper .xsd .d { font-family: Georgia, serif; font-style: italic; text-transform: none; letter-spacing: 0; font-size: 15px; }
+  .t-paper .xwh.today, .t-paper .xsd.on { background: #fff3b8; color: #2b2a27; }
+  .t-glass .xpd, .t-paper .xpd { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.55); }
+  .t-glass .xpd.vis { background: rgba(255,255,255,.28); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .t-paper .xpd.vis { background: #fbf8f1; color: #2b2a27; text-shadow: none; box-shadow: 0 4px 10px rgba(0,0,0,.25); }
+  .t-paper .xpd.vis .d { font-family: Georgia, serif; font-style: italic; text-transform: none; }
+  .t-paper .xpd.vis .n { font-family: Georgia, serif; font-weight: 400; }
+  .t-paper .xpd.today .n { color: #c0392b; }
+  .t-paper .xwh.today .n, .t-paper .xsd.today .n { color: #c0392b; }
+  .t-paper .xblk { background: color-mix(in srgb, var(--c) 30%, #fff); color: #2b2a27; }
+  .t-paper .xblk.xf { background: #e8eef6; border: 1px dashed #9db4d3; color: #2d4c75; }
+  .t-paper .xblk.sel { outline-color: #2b2a27; }
+  .t-paper .xpeek, .t-paper .xfab { background: #2b2a27; color: #fff; }
+  .t-paper .xpeek.nw, .t-paper .xfab.f { background: #e0484f; }
+.t-paper .xplus { border-color: #9a9488; background: rgba(43,42,39,.06); color: #2b2a27; }
+  .t-paper .xadbar { background: color-mix(in srgb, var(--c) 55%, #fff); color: #3b2d55; }
+  .t-paper .xadbar.more { background: #fbf8f1; color: #2b2a27; }
+  .t-paper .xtrk, .t-paper .xnone, .t-paper .xdw { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+  .t-paper .xdt h2 { font-family: Georgia, serif; font-weight: 400; }
+  .t-paper .xli.sel { background: #f1e9d6; }
+  .t-paper .xdw { font-family: Georgia, serif; font-style: italic; font-size: 17px; text-transform: none; letter-spacing: 0; text-align: center; padding-left: 0; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+  .t-paper .xc { padding: 6px 8px; transform: rotate(var(--r)); }
+  .t-paper .xc.xemp { background: rgba(251,248,241,.55); box-shadow: 0 4px 10px rgba(0,0,0,.15); }
+  .t-paper .xc.out { opacity: 0; pointer-events: none; }
+  .t-paper .xc.stay { box-shadow: inset 0 -3px 0 rgba(45,106,168,.55), 0 8px 18px rgba(0,0,0,.28); }
+  .t-paper .xn { font-family: Georgia, serif; font-size: 22px; font-weight: 400; line-height: 1; color: #3d4a5c; }
+  .t-paper .xc.today { background: #fff3b8; }
+  .t-paper .xc.today .xn { color: #c0392b; }
+  .t-paper .xc.sel { transform: rotate(0) scale(1.06); box-shadow: 0 0 0 3px #c0392b, 0 16px 30px rgba(0,0,0,.4); }
+  .t-paper .xe small, .t-paper .xmore { color: #8a857a; opacity: 1; }
+  .t-paper .xbar { background: color-mix(in srgb, var(--c) 45%, #fff); color: #3b2d55; margin: 0; border-radius: 3px; padding: 1px 6px; }
+  .t-paper .xfd { background: #e8eef6; color: #2d4c75; border: 1px dashed #9db4d3; }
+  .t-paper .xfl .xe { color: #2d4c75; }
+  .t-paper .xph .big { font-family: Georgia, serif; font-weight: 400; color: #3d4a5c; }
+  .t-paper .xph .dw { font-family: Georgia, serif; font-style: italic; }
+  .t-paper .xit { background: #f1ece0; }
+  .t-paper .xopen { background: #2b2a27; color: #fff; }
+  .t-paper .adh { font-family: Georgia, serif; font-style: italic; font-size: 18px; font-weight: 400; color: #3d4a5c; }
+  .t-paper .arow { background: #f1ece0; }
+  .t-paper .arow small, .t-paper .atime, .t-paper .empty { color: #6f6a60; }
+
+  @media (max-width: 1100px) { .xth { display: none; } }
+  @media (max-width: 900px) {
+    .xdside { display: none; }
+    #cal.fx .cttl { font-size: 26px; flex: 1; }
+    #cal.fx .side { top: 120px; left: 12px; }
+  }
+  @media (max-width: 700px) {
+    .xpan { position: absolute; left: 0; right: 0; bottom: 0; width: auto; max-height: 62%; z-index: 30; }
+    .t-paper .xpan { transform: none; }
+    .xdots { display: none; }
+  }
+  @media (max-width: 600px) {
+    #cal.fx { padding: 10px 10px 8px; gap: 8px; }
+    #cal.fx .ct { gap: 8px; }
+    #cal.fx .cnav { width: 36px; height: 36px; font-size: 22px; }
+    #cal.fx .cbtn, #cal.fx .ctabs button { padding: 7px 9px; font-size: 14px; }
+    #cal.fx .cttl { font-size: 19px; }
+    .xg { gap: 4px; }
+    .t-glass .xc, .t-paper .xc { padding: 3px 4px; border-radius: 8px; }
+    .xn, .t-paper .xn { font-size: 14px; }
+    .xe, .xfl .xe, .xfd { font-size: 10.5px; }
+    .xfd { padding: 1px 4px; }
+    .xdw { font-size: 11px; padding-left: 4px; letter-spacing: .04em; }
+    .xwr, .xad, .xbody { column-gap: 3px; }
+    .xwh { padding: 4px; flex-direction: column; gap: 0; border-radius: 9px; }
+    .xwh .n { font-size: 17px; } .xwh .d { font-size: 10px; letter-spacing: .04em; }
+    .xcol { border-radius: 8px; }
+    .xhl { font-size: 8.5px; right: 2px; }
+    .xblk { font-size: 10px; padding: 2px 3px; }
+    .xblk b { font-size: 10.5px; }
+    .xcol { --pk: 15px; }
+    .xpeek { left: 2px; max-width: calc(100% - 4px); font-size: 9.5px; padding: 0 3px; }
+    .xplus { font-size: 9.5px; padding-top: 1px; border-radius: 5px; letter-spacing: -.5px; }
+    .xfab { width: 26px; height: 26px; font-size: 15px; line-height: 26px; right: 3px; bottom: 3px; }
+    .xcol.fu .xfab { top: 3px; }
+    .xcol.dty:not(.fu) .xpeek.b, .xcol.dty.fu .xpeek.t { max-width: calc(100% - 31px); }
+    .xstrip { gap: 3px; }
+    .xsd { padding: 4px; flex-direction: column; gap: 0; border-radius: 9px; }
+    .xsd .n { font-size: 16px; } .xsd .d { font-size: 9.5px; letter-spacing: .04em; }
+    .xtrk { padding-left: 44px; font-size: 10px; letter-spacing: .06em; }
+    .xday .xhl { left: 5px; font-size: 10px; }
+    .xday .xnow { left: 40px; }
+    .xday .xnow span { right: calc(100% + 3px); font-size: 9px; padding: 1px 3px; letter-spacing: -.2px; }
+    .xday .xcol { --pk: 20px; }
+    .xday .xpeek { left: 44px; max-width: calc(100% - 48px); }
+    .xday .xcol.dty:not(.fu) .xpeek.b, .xday .xcol.dty.fu .xpeek.t { max-width: calc(100% - 96px); }
+    .xday .xblk b { font-size: 13px; }
+  }
 </style>
 
 <div id="cal">
@@ -216,8 +531,9 @@
     <div class="cttl" id="c-title"></div>
     <button class="cnav" id="c-next" aria-label="Next">&rsaquo;</button>
     <button class="cbtn" id="c-today">Today</button>
+    <div class="xth" id="c-th" hidden></div>
     <div class="ctabs" role="tablist">
-      <button data-view="month">Month</button><button data-view="week">Week</button><button data-view="agenda">Agenda</button>
+      <button data-view="month">Month</button><button data-view="week">Week</button><button data-view="day">Day</button><button data-view="agenda">Agenda</button>
     </div>
     <button class="cbtn cadd" id="c-add">+ New<span class="cadd-l"> event</span></button>
   </div>
@@ -280,7 +596,10 @@
     hidden: JSON.parse(localStorage.getItem('hubcal.hidden') || '[]'),
     people: JSON.parse(localStorage.getItem('hubcal.people') || '[]')
   };
-  if (['month', 'week', 'agenda'].indexOf(state.view) < 0) state.view = 'month';
+  if (['month', 'week', 'day', 'agenda'].indexOf(state.view) < 0) state.view = 'month';
+  // Glass & Paper use the redesigned month/week views; Classic keeps the original ones.
+  var FX = CFG.theme !== 'classic';
+  if (FX) $('cal').classList.add('fx');
 
   // ---- dates: naive local "YYYY-MM-DDTHH:MM:SS" strings <-> Date fields ----
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -307,7 +626,7 @@
   // ---- data ----
   function range() {
     var a = state.anchor;
-    if (state.view === 'week') { var w = weekStart(a); return [w, addDays(w, 7)]; }
+    if (state.view === 'week' || state.view === 'day') { var w = weekStart(a); return [w, addDays(w, state.view === 'week' && phoneN() ? 14 : 7)]; }
     if (state.view === 'agenda') { var s = dayStart(a); return [s, addDays(s, 42)]; }
     var first = weekStart(new Date(a.getFullYear(), a.getMonth(), 1));
     return [first, addDays(first, 42)];
@@ -432,6 +751,418 @@
     flush();
   }
 
+  // ===== redesigned views (time grid: day view everywhere, week in Glass/Paper) =====
+  var S = 7, E = 22;            // "home" daytime window; hours outside it are hatched as night
+  var grids = [], mem = {};     // live time-grid tickers; remembered scroll offsets per view+day
+  var daySel = null, monSel = null;
+  setInterval(function () { grids.forEach(function (g) { g(); }); }, 1000);
+  function nowH() { var n = now(); return n.getHours() + n.getMinutes() / 60 + n.getSeconds() / 3600; }
+  function fmt(t) {
+    var h = Math.floor(t), m = Math.round((t - h) * 60);
+    if (m === 60) { h++; m = 0; }
+    return (h % 12 || 12) + (m ? ':' + pad(m) : '') + (h % 24 < 12 ? 'a' : 'p');
+  }
+  function isApp(e) { return !!sourceOf(e).app; }
+  function setTitle(main, rest) {
+    var t = $('c-title');
+    if (FX) t.innerHTML = '<b>' + esc(main) + '</b>' + (rest ? ' ' + esc(rest) : '');
+    else t.textContent = main + (rest ? ' ' + rest : '');
+  }
+  // Phones show a few day columns starting at the anchor day instead of the whole week.
+  var PHONE_COLS = 3;
+  function phoneN() { return FX && window.innerWidth <= 600 ? PHONE_COLS : 0; }
+  function weekLabel(w, n) {
+    var e6 = addDays(w, (n || 7) - 1), m = MON[w.getMonth()].slice(0, 3);
+    return w.getMonth() === e6.getMonth() ? m + ' ' + w.getDate() + ' – ' + e6.getDate()
+      : m + ' ' + w.getDate() + ' – ' + MON[e6.getMonth()].slice(0, 3) + ' ' + e6.getDate();
+  }
+  // Timed events on day d as hour offsets {t, u}, clipped to the day.
+  function timedOn(list, d) {
+    var ds = d.getTime(), de = addDays(d, 1).getTime();
+    return list.filter(function (e) { return !e.all_day; }).map(function (e) {
+      var s0 = parse(e.start).getTime(), s = Math.max(s0, ds), en = Math.min(parse(e.end).getTime(), de);
+      var t = (s - ds) / 36e5;
+      return { e: e, t: t, u: Math.min(24, Math.max((en - ds) / 36e5, t + 0.5)), app: isApp(e), cont: s0 < ds };
+    }).sort(function (a, b) { return a.t - b.t || b.u - a.u; });
+  }
+  // Overlap lanes: x.l = lane, x.n = lanes used by its overlap cluster.
+  function lanes(list) {
+    var cl = [], ends = [], end = -1, cid = 0;
+    function flush() { cl.forEach(function (x) { x.n = ends.length; x.c = cid; }); cl = []; ends = []; cid++; }
+    list.forEach(function (x) {
+      if (x.t >= end) { flush(); end = -1; }
+      var l = 0;
+      while (l < ends.length && ends[l] > x.t + 0.001) l++;
+      ends[l] = x.u; x.l = l; cl.push(x); end = Math.max(end, x.u);
+    });
+    flush();
+  }
+  // Side by side; if lanes would get narrower than minW, cascade them instead.
+  function place(list, x0, avail, minW) {
+    list.forEach(function (x) {
+      var w = avail / x.n, st = w;
+      if (w < minW && x.n > 1) { w = Math.min(avail, minW); st = (avail - w) / (x.n - 1); }
+      x.x = x0 + x.l * st; x.w = w;
+    });
+  }
+  // Week columns: side by side while every lane is at least minW wide (room for a name); otherwise
+  // keep as many lanes as fit and fold the rest of that overlap cluster into one "+N" chip.
+  function fitLanes(list, x0, avail, minW, cw) {
+    var byC = {}, chips = [];
+    list.forEach(function (x) { (byC[x.c] = byC[x.c] || []).push(x); });
+    Object.keys(byC).forEach(function (c) {
+      var cl = byC[c], n = cl[0].n;
+      if (avail / n >= minW) return cl.forEach(function (x) { x.w = avail / n; x.x = x0 + x.l * x.w; });
+      var m = Math.max(1, Math.floor((avail - cw) / minW)), lw = (avail - cw) / m, hid = [];
+      cl.forEach(function (x) {
+        if (x.l < m) { x.w = lw; x.x = x0 + x.l * lw; } else { x.hide = true; hid.push(x); }
+      });
+      chips.push({ n: hid.length, first: hid[0].e.id, x: x0 + m * lw, w: cw,
+        t: Math.min.apply(null, hid.map(function (x) { return x.t; })), u: Math.max.apply(null, hid.map(function (x) { return x.u; })) });
+    });
+    return chips;
+  }
+  function pkH(el) { return parseFloat(getComputedStyle(el).getPropertyValue('--pk')) || 0; }
+  function blk(x, H, cls, style, inner) {
+    return '<div class="xblk' + (x.app ? ' xf' : '') + (theirs(x.e) ? ' theirs' : '') + (x.e.id === daySel && state.view === 'day' ? ' sel' : '') + cls +
+      '" data-ev="' + esc(x.e.id) + '" style="--c:' + esc(x.e.color) + ';top:' + (x.t * H + 2) + 'px;height:' + Math.max(14, (x.u - x.t) * H - 4) + 'px;' + style + '">' + inner + '</div>';
+  }
+  // A wrapped name that would push the time out of its block is held to the lines that fit.
+  function fitTitles(root) {
+    root.querySelectorAll('.xblk:not(.one)').forEach(function (el) {
+      var b = el.querySelector('b'), s = el.querySelector('small'), cs = getComputedStyle(el), lh = parseFloat(getComputedStyle(b).lineHeight) || 15,
+          room = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - (s ? s.offsetHeight : 0), n = Math.max(1, Math.floor(room / lh + .1));
+      if (b.offsetHeight <= n * lh + 1) return;
+      if (n === 1) b.style.whiteSpace = 'nowrap'; else b.style.maxHeight = n * lh + 'px';
+    });
+  }
+  function gridSkel(H, day) {
+    var h = '<div class="xnight" style="top:0;height:' + S * H + 'px"></div><div class="xnight" style="top:' + E * H + 'px;height:' + (24 - E) * H + 'px"></div>';
+    for (var k = 0; k < 24; k++) h += '<div class="xhl' + (k < S || k >= E ? ' n' : '') + '" style="top:' + (k * H + (day ? 3 : 2)) + 'px">' + ((k % 12 || 12) + (k < 12 ? 'a' : 'p')) + '</div>';
+    return h;
+  }
+  // Drag/wheel-scrollable 24h column with peeks, directional reset button and now-follow.
+  function timeGrid(col, o) {
+    var wrap = col.querySelector('.xcw'), pt = col.querySelector('.xpeek.t'), pb = col.querySelector('.xpeek.b'),
+        fab = col.querySelector('.xfab'), nl = col.querySelector('.xnow'), vp = col.querySelector('.xvp'), H = o.H, VH = vp.clientHeight, P = vp.offsetTop,
+        hls = nl && nl.firstChild ? wrap.querySelectorAll('.xhl') : [],
+        MX = Math.max(0, 24 * H - VH), off = 0, dirty = false, anim = 0, up = [], dn = [];
+    function clamp(v) { return Math.max(0, Math.min(MX, v)); }
+    function home() {
+      if (!o.today) return clamp(S * H);
+      var n = nowH();
+      return clamp(n < S ? n * H - VH * .33 : Math.max(S * H, n * H - VH * .67));
+    }
+    function setD(v) { dirty = v; col.classList.toggle('dty', v); }
+    function set(v) { off = clamp(v); mem[o.mk] = { off: off, dirty: dirty }; upd(); }
+    function glide(to) {
+      cancelAnimationFrame(anim);
+      var a = off, b = clamp(to), t0 = performance.now();
+      (function fr(ts) {
+        var k = Math.max(0, Math.min(1, (ts - t0) / 350));
+        set(a + (b - a) * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) anim = requestAnimationFrame(fr);
+      })(t0);
+    }
+    function reset() { setD(false); glide(home()); }
+    function peek(el, list, pick, arrow, nowOff, n) {
+      el.classList.toggle('nw', nowOff);
+      if (nowOff) el.textContent = arrow + ' now ' + fmt(Math.floor(n * 12) / 12) + (list.length ? ' +' + list.length : '');
+      else if (list.length) el.textContent = arrow + ' ' + pick.s + (list.length > 1 ? ' +' + (list.length - 1) : '');
+      el.style.display = nowOff || list.length ? 'block' : 'none';
+    }
+    function upd() {
+      col.classList.toggle('fu', dirty && off < home() - 1);
+      wrap.style.transform = 'translateY(' + (-off) + 'px)';
+      col.style.backgroundPosition = '0 ' + (P - off) + 'px';
+      up = o.items.filter(function (x) { return x.t * H + H * .7 < off; });
+      dn = o.items.filter(function (x) { return x.t * H > off + VH - 8; });
+      var n = o.today ? nowH() : 0, ny = n * H;
+      peek(pt, up, up[up.length - 1], '▲', !!o.today && ny < off, n);
+      peek(pb, dn, dn[0], '▼', !!o.today && ny > off + VH - 4, n);
+      if (nl) {
+        nl.style.top = ny + 'px';
+        if (nl.firstChild) nl.firstChild.textContent = fmt(Math.floor(n * 12) / 12);
+        // Like the mockup: the hour label under the now pill steps aside.
+        for (var i = 0; i < hls.length; i++) hls[i].style.visibility = Math.abs(i * H + 10 - ny) < 17 ? 'hidden' : '';
+      }
+    }
+    pt.onclick = function (ev) { ev.stopPropagation(); if (pt.classList.contains('nw')) return reset(); setD(true); glide(up[0].t * H - 20); };
+    pb.onclick = function (ev) { ev.stopPropagation(); if (pb.classList.contains('nw')) return reset(); setD(true); glide(dn[dn.length - 1].t * H + H * 1.5 - VH); };
+    fab.onclick = function (ev) { ev.stopPropagation(); reset(); };
+    // Drag only takes over after a 4px move, so taps on events still open them.
+    // With o.swipe the axis is locked over the first 10px: mostly sideways swipes days, otherwise it scrolls.
+    var sy = null, sx = 0, so = 0, moved = false, ax = 'y';
+    col.addEventListener('pointerdown', function (ev) {
+      if (ev.button > 0 || ev.target.closest('.xpeek,.xfab,.xplus')) return;
+      sy = ev.clientY; sx = ev.clientX; so = off; moved = false; cancelAnimationFrame(anim);
+    });
+    col.addEventListener('pointermove', function (ev) {
+      if (sy === null) return;
+      var dy = ev.clientY - sy, dx = ev.clientX - sx;
+      if (!moved) {
+        if ((o.swipe ? Math.max(Math.abs(dx), Math.abs(dy)) : Math.abs(dy)) <= (o.swipe ? 10 : 4)) return;
+        moved = true; ax = o.swipe && Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (ax === 'y') setD(true);
+        try { col.setPointerCapture(ev.pointerId); } catch (x) {}
+      }
+      if (ax === 'x') o.swipe(dx, false); else set(so - dy);
+    });
+    col.addEventListener('pointerup', function (ev) {
+      if (sy !== null && moved && ax === 'x') o.swipe(ev.clientX - sx, true);
+      sy = null;
+    });
+    col.addEventListener('pointercancel', function () { if (moved && ax === 'x') o.swipe(0, true); sy = null; moved = false; });
+    col.addEventListener('click', function (ev) {
+      if (moved) { moved = false; ev.stopPropagation(); ev.preventDefault(); }
+    }, true);
+    col.addEventListener('wheel', function (ev) {
+      ev.preventDefault(); cancelAnimationFrame(anim); setD(true); set(off + ev.deltaY);
+    }, { passive: false });
+    // Empty-slot tap opens "new event" at that hour; a double tap resets the column instead.
+    var tap = 0;
+    col.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-ev],.xpeek,.xfab,.xplus')) return;
+      ev.stopPropagation();
+      if (tap) { clearTimeout(tap); tap = 0; return reset(); }
+      var y = ev.clientY - vp.getBoundingClientRect().top + off;
+      tap = setTimeout(function () {
+        tap = 0;
+        var s = parse(o.key); s.setHours(Math.max(0, Math.min(23, Math.floor(y / H))));
+        openSheet(null, s);
+      }, 300);
+    });
+    var m = mem[o.mk];
+    if (m) { off = clamp(m.off); setD(m.dirty); } else off = home();
+    upd();
+    grids.push(function () {
+      if (o.today && !dirty) { cancelAnimationFrame(anim); off = home(); }
+      upd();
+    });
+  }
+  function colShell(H, inner, today, day) {
+    return '<div class="xvp"><div class="xcw" style="height:' + 24 * H + 'px">' + gridSkel(H, day) + inner +
+      (today ? '<div class="xnow">' + (day ? '<span></span>' : '') + '</div>' : '') + '</div></div>' +
+      '<div class="xpeek t"></div><div class="xpeek b"></div><button class="xfab' + (today ? ' f' : '') + '" title="' + (today ? 'Back to now' : 'Reset') + '">↻</button>';
+  }
+  function peekItems(items) {
+    return items.map(function (x) { return { t: x.t, s: (x.app ? '🎿 ' : '') + fmt(x.t) + ' ' + x.e.title }; });
+  }
+  // All-day bars packed into rows across the week; overflow becomes "+N" per day.
+  function allDayBars(evs, w, rows, nd) {
+    nd = nd || 7;
+    var we = addDays(w, nd), used = [], out = '', extra = [];
+    for (var x = 0; x < nd; x++) extra.push(0);
+    evs.filter(function (e) { return e.all_day && e.start.slice(0, 10) < dkey(we) && e.end.slice(0, 10) > dkey(w); })
+      .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : b.end > a.end ? 1 : -1; })
+      .forEach(function (e) {
+        var a = Math.max(0, Math.round((dayStart(parse(e.start)) - w) / 864e5)), b = Math.min(nd, Math.round((dayStart(parse(e.end)) - w) / 864e5));
+        if (b <= a) b = a + 1;
+        var r = 0;
+        while (r < rows && used[r] && used[r].slice(a, b).some(Boolean)) r++;
+        if (r >= rows) { for (var i = a; i < b; i++) extra[i]++; return; }
+        used[r] = used[r] || [];
+        for (var j = a; j < b; j++) used[r][j] = 1;
+        out += '<div class="xadbar' + (theirs(e) ? ' theirs' : '') + '" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + ';grid-row:' + (r + 1) + ';grid-column:' + (a + 1) + ' / span ' + (b - a) + '">' + esc(e.title) + '</div>';
+      });
+    extra.forEach(function (n, i) { if (n) out += '<div class="xadbar more" style="grid-row:' + (rows + 1) + ';grid-column:' + (i + 1) + '">+' + n + ' more</div>'; });
+    return out;
+  }
+
+  function renderWeekFx() {
+    var N = phoneN(), nd = N || 7, w = N ? dayStart(state.anchor) : weekStart(state.anchor), evs = events(), tk = todayKey(), hd = '', cols = '', strip = '',
+        gs = N ? ' style="grid-template-columns:repeat(' + N + ',minmax(0,1fr))"' : '';
+    var yr = addDays(w, nd - 1).getFullYear();
+    setTitle(weekLabel(w, nd), N && yr === now().getFullYear() ? '' : String(yr));
+    if (N) {
+      var sw = weekStart(w), last = dkey(addDays(w, N - 1));
+      for (var j = 0; j < 7; j++) {
+        var sd = addDays(sw, j), sk = dkey(sd), l = onDay(evs, sd), own = l.filter(function (e) { return !isApp(e); });
+        strip += '<div class="xpd' + (sk >= dkey(w) && sk <= last ? ' vis' : '') + (sk === tk ? ' today' : '') + '" data-pday="' + sk + '"><span class="d">' + DOW[sd.getDay()].slice(0, 2) +
+          '</span><span class="n">' + sd.getDate() + '</span><span class="xpdots">' + own.slice(0, 3).map(function (e) { return '<i style="--c:' + esc(e.color) + '"></i>'; }).join('') +
+          (own.length < l.length ? '<i class="f"></i>' : '') + '</span></div>';
+      }
+      strip = '<div class="xps">' + strip + '</div>';
+    }
+    for (var i = 0; i < nd; i++) {
+      var d = addDays(w, i), k = dkey(d);
+      hd += '<div class="xwh' + (k === tk ? ' today' : '') + '" data-day="' + k + '"><span class="n">' + d.getDate() + '</span><span class="d">' + DOW[d.getDay()] + '</span></div>';
+      cols += '<div class="xcol' + (k === tk ? ' today' : '') + '" data-day="' + k + '"></div>';
+    }
+    main.innerHTML = '<div class="xwk">' + strip + '<div class="xwr"' + gs + '>' + hd + '</div><div class="xad"' + gs + '>' + allDayBars(evs, w, 2, nd) + '</div><div class="xbody"' + gs + '>' + cols + '</div></div>';
+    var body = main.querySelector('.xbody'), H = (body.clientHeight - 2 * pkH(body.firstChild)) / (E - S);
+    // Horizontal swipe on the grid (phones): the columns follow the finger, then shift by one day.
+    function swipe(dx, end) {
+      body.style.transition = end ? 'transform .18s' : 'none';
+      body.style.transform = end ? '' : 'translateX(' + dx + 'px)';
+      if (end && Math.abs(dx) > 40) go(null, addDays(w, dx < 0 ? 1 : -1));
+    }
+    main.querySelectorAll('.xbody .xcol').forEach(function (col) {
+      var k = col.dataset.day, d = parse(k), items = timedOn(onDay(evs, d), d), W = col.clientWidth, mob = W < 80;
+      lanes(items);
+      var more = fitLanes(items, mob ? 1 : 3, W - (mob ? 2 : 6), mob || N ? 30 : 44, mob ? 18 : N ? 22 : 26);
+      var inner = items.filter(function (x) { return !x.hide; }).map(function (x) {
+        var h = (x.u - x.t) * H, one = h < 34, tm = x.cont ? '↳' : hm(parse(x.e.start), true);
+        return blk(x, H, one ? ' one' : '', 'left:' + x.x + 'px;width:' + (x.w - 2) + 'px',
+          '<b>' + (x.app ? '🎿 ' : '') + esc(x.e.title) + '</b>' + (one && x.w < 90 ? '' : '<small>' + tm + '</small>'));
+      }).join('') + more.map(function (m) {
+        return '<div class="xplus" data-day="' + k + '" data-first="' + esc(m.first) + '" title="' + m.n + ' more" style="top:' + (m.t * H + 2) + 'px;height:' + Math.max(18, (m.u - m.t) * H - 4) +
+          'px;left:' + m.x + 'px;width:' + (m.w - 2) + 'px">+' + m.n + '</div>';
+      }).join('');
+      col.style.setProperty('--h', H + 'px');
+      col.innerHTML = colShell(H, inner, k === tk, false);
+      timeGrid(col, { H: H, key: k, today: k === tk, items: peekItems(items), mk: 'week:' + k, swipe: N ? swipe : null });
+      fitTitles(col);
+    });
+  }
+
+  function renderDay() {
+    var d = dayStart(state.anchor), k = dkey(d), tk = todayKey(), isT = k === tk, evs = events(), w = weekStart(d), strip = '';
+    var ph = innerWidth <= 600;
+    setTitle((ph ? DOW[d.getDay()] : longDayName(d)) + ', ' + MON[d.getMonth()].slice(0, 3) + ' ' + d.getDate(), ph && d.getFullYear() === now().getFullYear() ? '' : String(d.getFullYear()));
+    for (var i = 0; i < 7; i++) {
+      var sd = addDays(w, i), sk = dkey(sd), l = onDay(evs, sd), own = l.filter(function (e) { return !isApp(e); }), fc = l.length - own.length;
+      strip += '<div class="xsd' + (sk === k ? ' on' : '') + (sk === tk ? ' today' : '') + '" data-day="' + sk + '"><span class="n">' + sd.getDate() + '</span><span class="d">' + DOW[sd.getDay()] + '</span><span class="xdots">' +
+        own.slice(0, 4).map(function (e) { return '<i style="--c:' + esc(e.color) + '"></i>'; }).join('') + (fc ? '&nbsp;🎿' + fc : '') + '</span></div>';
+    }
+    var list = onDay(evs, d), allday = list.filter(function (e) { return e.all_day; });
+    var ad = allday.map(function (e) {
+      var s = parse(e.start), last = addDays(parse(e.end), -1), multi = dkey(last) > dkey(s);
+      return '<div class="xadbar' + (theirs(e) ? ' theirs' : '') + '" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + '">' + esc(e.title) +
+        (multi ? ' <span style="opacity:.6;font-weight:400">· ' + MON[s.getMonth()].slice(0, 3) + ' ' + s.getDate() + '–' + (last.getMonth() !== s.getMonth() ? MON[last.getMonth()].slice(0, 3) + ' ' : '') + last.getDate() + '</span>' : '') + '</div>';
+    }).join('');
+    main.innerHTML = '<div class="xday"><div class="xstrip">' + strip + '</div><div class="xdm"><div class="xgbox"><div class="xdad">' + ad + '</div>' +
+      '<div class="xtrk"><span>Yours</span><span>🎿 Community</span></div><div class="xcol' + (isT ? ' today' : '') + '" data-day="' + k + '"></div></div>' +
+      '<div class="xdside"><div class="xdet"></div><div class="xlst"></div></div></div></div>';
+    var col = main.querySelector('.xday .xcol'), VH = col.clientHeight - 2 * pkH(col), W = col.clientWidth, H = VH / (E - S),
+        G = W < 500 ? 44 : 60, YW = (W - G) * .58, items = timedOn(list, d), n = nowH();
+    main.querySelector('.xtrk').style.setProperty('--yw', YW + 'px');
+    var own = items.filter(function (x) { return !x.app; }), app = items.filter(function (x) { return x.app; });
+    lanes(own); lanes(app);
+    place(own, G, YW - 4, 70);
+    place(app, G + YW + 6, W - G - YW - 14, 60);
+    if (daySel && !items.some(function (x) { return x.e.id === daySel; })) daySel = null;
+    if (!daySel && items.length) {
+      var nx = items.filter(function (x) { return x.u > (isT ? n : 0); })[0] || items[0];
+      daySel = nx.e.id;
+    }
+    var inner = '<div class="xsep" style="left:' + (G + YW) + 'px;height:' + 24 * H + 'px"></div>' +
+      own.map(function (x) {
+        var tm = (x.cont ? '↳ ' : fmt(x.t) + ' – ') + fmt(x.u);
+        return blk(x, H, (x.u - x.t) * H < 48 ? ' one' : '', 'left:' + x.x + 'px;width:' + (x.w - 6) + 'px',
+          '<b>' + esc(x.e.title) + '</b><small>' + tm + (x.e.location && x.n === 1 ? ' · ' + esc(x.e.location) : '') + '</small>');
+      }).join('') +
+      app.map(function (x) {
+        return blk(x, H, (x.u - x.t) * H < 44 ? ' one' : '', 'left:' + x.x + 'px;width:' + (x.w - 4) + 'px',
+          '<b>' + esc(x.e.title) + '</b><small>' + fmt(x.t) + '</small>');
+      }).join('');
+    col.style.setProperty('--h', H + 'px');
+    col.innerHTML = colShell(H, inner, isT, true);
+    timeGrid(col, { H: H, key: k, today: isT, items: peekItems(items), mk: 'day:' + k });
+    fitTitles(col);
+    dayItems = items; dayIsT = isT;
+    daySide();
+  }
+  var dayItems = [], dayIsT = false;
+  function longDayName(d) { return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]; }
+  function daySide() {
+    var det = main.querySelector('.xdet'), lst = main.querySelector('.xlst');
+    if (!det) return;
+    main.querySelectorAll('.xday .xblk').forEach(function (b) { b.classList.toggle('sel', b.dataset.ev === daySel); });
+    var n = nowH(), x = dayItems.filter(function (i) { return i.e.id === daySel; })[0];
+    if (!x) det.innerHTML = '<div class="xdt"><h2 style="opacity:.6">Nothing scheduled</h2></div>';
+    else {
+      var e = x.e, live = dayIsT && n >= x.t && n < x.u, mins = dayIsT ? Math.round((x.t - n) * 60) : 0;
+      var tag = live ? '● Happening now' : dayIsT && mins > 0 ? 'Up next · in ' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' : '') + (mins % 60) + 'm' : x.app ? '🎿 Sun Peaks' : 'Event';
+      det.innerHTML = '<div class="xhero"' + (e.image ? '' : ' style="background:linear-gradient(135deg,' + esc(e.color) + ',color-mix(in srgb,' + esc(e.color) + ' 30%,#14202e))"') + '>' +
+        (e.image ? '<img class="xhimg" referrerpolicy="no-referrer" src="' + esc(e.image) + '" alt="">' : '<div class="big">' + fmt(x.t) + '</div>') + '<span class="tag">' + tag + '</span>' +
+        (e.url ? '<div class="xqr"><img src="' + esc(CFG.qr + '?u=' + encodeURIComponent(e.url)) + '" alt=""></div>' : '') + '</div>' +
+        '<div class="xdt"><h2>' + (x.app ? '🎿 ' : '') + esc(e.title) + '</h2><div class="w">🕓 ' + (x.cont ? 'until ' : fmt(x.t) + ' – ') + fmt(x.u) + '</div>' +
+        (e.location ? '<div class="w">📍 ' + esc(e.location) + '</div>' : '') +
+        (e.notes ? '<p>' + esc(e.notes.length > 180 ? e.notes.slice(0, 177) + '…' : e.notes) + '</p>' : '') + '</div>';
+    }
+    lst.innerHTML = '<h3>' + (dayIsT ? 'Today' : 'All events') + ' · ' + dayItems.length + '</h3>' + dayItems.map(function (i) {
+      return '<div class="xli' + (i.e.id === daySel ? ' sel' : '') + (dayIsT && i.u < n ? ' past' : '') + '" data-sel="' + esc(i.e.id) + '"><small>' + (i.cont ? '↳' : fmt(i.t)) + '</small><i style="--c:' + esc(i.e.color) + '"></i><span>' +
+        (i.app ? '🎿 ' : '') + esc(i.e.title) + '</span></div>';
+    }).join('');
+  }
+
+  var ROT = [-1.6, 1.1, -0.6, 1.8, -1.2, 0.5, -2, 1.4, -0.4, 0.9, -1.5, 2, -0.8, 0.3];
+  function renderMonthFx() {
+    var a = state.anchor, r = range(), evs = events(), tk = todayKey(), narrow = !!monSel, MAX = narrow ? 2 : 3;
+    setTitle(MON[a.getMonth()], String(a.getFullYear()));
+    var last = addDays(new Date(a.getFullYear(), a.getMonth() + 1, 1), -1);
+    var weeks = Math.ceil(((last - r[0]) / 864e5 + 1) / 7), h = '';
+    for (var i = 0; i < 7; i++) { var dw = DOW[(i + CFG.weekStart) % 7]; h += '<div class="xdw">' + (narrow ? dw.slice(0, 2) : dw) + '</div>'; }
+    for (var c = 0; c < weeks * 7; c++) {
+      var d = addDays(r[0], c), k = dkey(d), cur = d.getMonth() === a.getMonth(), list = cur ? onDay(evs, d) : [];
+      var own = list.filter(function (e) { return !isApp(e); }), fs = list.filter(isApp), rows = '';
+      own.slice(0, MAX).forEach(function (e) {
+        var s = parse(e.start), en = parse(e.end), lastDay = e.all_day ? addDays(en, -1) : new Date(en - 1), multi = dkey(lastDay) > dkey(s);
+        if (multi) {
+          var f = dkey(s) === k || c % 7 === 0, l = dkey(lastDay) === k || c % 7 === 6;
+          rows += '<div class="xe xbar' + (f ? ' f' : '') + (l ? ' l' : '') + (theirs(e) ? ' theirs' : '') + '" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + '"><span>' + esc(e.title) + '</span></div>';
+        } else {
+          rows += '<div class="xe' + (theirs(e) ? ' theirs' : '') + '" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + '"><i></i>' +
+            (e.all_day || narrow ? '' : '<small>' + hm(s, true) + '</small>') + '<span>' + esc(e.title) + '</span></div>';
+        }
+      });
+      if (own.length > MAX) rows += '<div class="xmore">+' + (own.length - MAX) + ' more</div>';
+      if (fs.length) rows += '<div class="xfl" data-n="' + fs.length + '">' + fs.map(function (e) { return '<div class="xe" data-ev="' + esc(e.id) + '"><span class="ic">🎿</span><span>' + esc(e.title) + '</span></div>'; }).join('') + '</div>';
+      h += '<div class="xc' + (cur ? '' : ' out') + (k === tk ? ' today' : '') + (k === monSel ? ' sel' : '') + (cur && !list.length ? ' xemp' : '') + (cur && inStay(d) ? ' stay' : '') +
+        '" data-day="' + k + '" style="--r:' + ROT[(c * 5) % 14] + 'deg"><div class="xn">' + d.getDate() + '</div>' + rows + '</div>';
+    }
+    main.innerHTML = '<div class="xmon"><div class="xg" style="grid-template-rows:auto repeat(' + weeks + ',minmax(0,1fr))">' + h + '</div>' + (monSel ? monthPanel(monSel, evs) : '') + '</div>';
+    monthFit(narrow);
+    // Today pill in the toolbar.
+    var th = $('c-th');
+    if (!monSel) {
+      var n = now(), td = onDay(evs, parse(tk)).filter(function (e) { return !isApp(e); });
+      var nx = td.filter(function (e) { return !e.all_day && parse(e.end) > n; })[0] || td[0];
+      th.innerHTML = '<b>Today</b> ' + (nx ? (nx.all_day ? '' : hm(parse(nx.start), true) + ' ') + esc(nx.title) + (td.length > 1 ? ' · +' + (td.length - 1) : '') : 'Nothing planned');
+      th.hidden = false;
+    }
+  }
+  function monthFit(narrow) {
+    // Community events: list names only if they all fit untruncated, else a "🎿 N events" tile.
+    main.querySelectorAll('.xfl').forEach(function (l) {
+      var c = l.parentElement, cut = [].some.call(l.querySelectorAll('.xe, .xe span'), function (x) { return x.scrollWidth > x.clientWidth + 1; });
+      if (c.scrollHeight > c.clientHeight + 1 || cut) {
+        var n = +l.dataset.n, t = document.createElement('div');
+        t.className = 'xfd';
+        t.innerHTML = '<span class="ic">🎿</span>' + n + (narrow ? '' : ' event' + (n > 1 ? 's' : ''));
+        l.replaceWith(t);
+        if (t.scrollWidth > t.clientWidth + 1) t.innerHTML = '<span class="ic">🎿</span>' + n;
+      }
+    });
+    // Own events: drop rows from the bottom until the cell fits, with "+N more".
+    main.querySelectorAll('.xc').forEach(function (c) {
+      if (c.scrollHeight <= c.clientHeight + 1) return;
+      var rows = [].slice.call(c.querySelectorAll(':scope > .xe')), more = c.querySelector('.xmore'), hid = more ? +more.textContent.replace(/\D/g, '') : 0;
+      if (!more) { more = document.createElement('div'); more.className = 'xmore'; (c.querySelector('.xfl,.xfd') ? c.insertBefore(more, c.querySelector('.xfl,.xfd')) : c.appendChild(more)); }
+      while (rows.length && c.scrollHeight > c.clientHeight + 1) { rows.pop().remove(); hid++; more.textContent = '+' + hid + ' more'; }
+      if (!hid) more.remove();
+    });
+  }
+  function monthPanel(k, evs) {
+    var d = parse(k), list = onDay(evs, d), own = list.filter(function (e) { return !isApp(e); }), fs = list.filter(isApp);
+    var h = '<div class="xph"><div class="big">' + d.getDate() + '</div><div class="dw">' + longDayName(d) + ', ' + MON[d.getMonth()].slice(0, 3) + '</div><button class="xx" title="Close">✕</button></div>';
+    function when(e) {
+      var s = parse(e.start), en = parse(e.end);
+      if (e.all_day) { var l = addDays(en, -1); return dkey(l) > dkey(s) ? MON[s.getMonth()].slice(0, 3) + ' ' + s.getDate() + '–' + l.getDate() : 'all day'; }
+      return dkey(s) !== k ? '↳ ' + hm(en, true) : hm(s, true);
+    }
+    if (own.length) h += '<div class="xsec">Ours</div>' + own.map(function (e) { return '<div class="xit" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + '"><small>' + when(e) + '</small><div>' + esc(e.title) + '</div></div>'; }).join('');
+    if (fs.length) {
+      var f0 = fs[0];
+      h += '<div class="xsec">Sun Peaks events</div><div class="xhero" data-ev="' + esc(f0.id) + '">' + (f0.image ? '<img class="xhimg" referrerpolicy="no-referrer" src="' + esc(f0.image) + '" alt="">' : '') +
+        '<small>' + when(f0) + '</small><span>🎿 ' + esc(f0.title) + '</span></div>' +
+        fs.slice(1).map(function (e) { return '<div class="xit" data-ev="' + esc(e.id) + '" style="--c:' + esc(e.color) + '"><small>' + when(e) + '</small><div>' + esc(e.title) + '</div><span class="chev">›</span></div>'; }).join('');
+    }
+    if (!list.length) h += '<div class="xnone" style="text-shadow:none">Nothing planned.</div>';
+    return '<div class="xpan">' + h + '<button class="xopen">Open day ›</button></div>';
+  }
+
   var weekScroll = null;
   function renderWeek() {
     var w = weekStart(state.anchor), evs = events(), tk = todayKey(), nw = now();
@@ -527,11 +1258,22 @@
     document.querySelectorAll('.ctabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.view === state.view); });
     if (!state.data) return;
     renderSide();
-    ({ month: renderMonth, week: renderWeek, agenda: renderAgenda })[state.view]();
+    grids = [];
+    $('c-th').hidden = true;
+    var fn = state.view === 'day' ? renderDay
+      : FX ? { month: renderMonthFx, week: renderWeekFx, agenda: renderAgenda }[state.view]
+      : { month: renderMonth, week: renderWeek, agenda: renderAgenda }[state.view];
+    fn();
   }
 
   // ---- navigation ----
   function go(view, anchor) {
+    if (view && view !== state.view) {
+      mem = {}; monSel = null;
+      // Phone week columns start at the anchor; coming from a month, start at today when it's in that month.
+      var t = parse(todayKey());
+      if (view === 'week' && !anchor && state.view === 'month' && t.getMonth() === state.anchor.getMonth() && t.getFullYear() === state.anchor.getFullYear()) anchor = t;
+    }
     if (view) { state.view = view; localStorage.setItem('hubcal.view', view); }
     if (anchor) state.anchor = anchor;
     render();
@@ -539,19 +1281,48 @@
   }
   function step(n) {
     var a = state.anchor;
+    mem = {}; monSel = null; daySel = null;
     if (state.view === 'month') go(null, new Date(a.getFullYear(), a.getMonth() + n, 1));
-    else go(null, addDays(a, n * (state.view === 'week' ? 7 : 28)));
+    else go(null, addDays(a, n * ({ week: phoneN() || 7, day: 1 }[state.view] || 28)));
   }
   $('c-prev').onclick = function () { step(-1); };
   $('c-next').onclick = function () { step(1); };
-  $('c-today').onclick = function () { weekScroll = null; go(null, parse(todayKey())); };
+  $('c-today').onclick = function () { weekScroll = null; mem = {}; monSel = null; daySel = null; go(null, parse(todayKey())); };
   $('c-filt').onclick = function () { $('cal').classList.toggle('showside'); };
   document.querySelectorAll('.ctabs button').forEach(function (b) { b.onclick = function () { go(b.dataset.view); }; });
   $('c-add').onclick = function () { openSheet(null, null); };
+  $('c-th').onclick = function () { daySel = null; go('day', parse(todayKey())); };
+  var rsz = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(rsz);
+    rsz = setTimeout(function () { if (FX || state.view === 'day') { mem = {}; render(); if (state.view === 'week') load(); } }, 100);
+  });
 
   main.addEventListener('click', function (ev) {
+    var li = ev.target.closest('[data-sel]');
+    if (li) { daySel = li.dataset.sel; return daySide(); }
+    if (ev.target.closest('.xdet')) return daySel && openPop(daySel);
     var e = ev.target.closest('[data-ev]');
     if (e) { ev.stopPropagation(); return openPop(e.dataset.ev); }
+    if (ev.target.closest('.xx')) { monSel = null; return render(); }
+    var pd = ev.target.closest('.xpd');
+    if (pd) {
+      var dd = parse(pd.dataset.pday), a0 = dayStart(state.anchor), n0 = phoneN() || 1;
+      if (dd < a0) return go(null, dd);
+      if (dd > addDays(a0, n0 - 1)) return go(null, addDays(dd, 1 - n0));
+      return;
+    }
+    var pl = ev.target.closest('.xplus');
+    if (pl) { daySel = pl.dataset.first; return go('day', parse(pl.dataset.day)); }
+    if (ev.target.closest('.xopen')) { var k = monSel; monSel = null; daySel = null; return go('day', parse(k)); }
+    var hd = ev.target.closest('.xwh[data-day],.xsd[data-day]');
+    if (hd) { if (hd.dataset.day !== dkey(state.anchor)) daySel = null; return go('day', parse(hd.dataset.day)); }
+    var mc = ev.target.closest('.xc[data-day]');
+    if (mc) {
+      if (mc.classList.contains('out')) return;
+      monSel = monSel === mc.dataset.day ? null : mc.dataset.day;
+      return render();
+    }
     var col = ev.target.closest('.wcol');
     if (col) {
       var y = ev.clientY - col.getBoundingClientRect().top;

@@ -399,6 +399,21 @@ class BrokerTests(TestCase):
         self.assertEqual((r.context["config"]["view"], r.context["config"]["weekStart"]), ("agenda", 1))
         self.assertIn({"app": "hub_calendar", "key": "default_view"}, self.broker.ops("settings.get"))
 
+    def test_look_setting_themes_the_page(self):
+        self.broker.settings.update({("hub_calendar", "theme"): "paper",
+                                     ("hub_calendar", "default_view"): "day"})
+        r = self.client.get(reverse("hub_calendar"))
+        self.assertEqual((r.context["config"]["theme"], r.context["config"]["view"]), ("paper", "day"))
+        self.assertRegex(r.content.decode(), r'<body[^>]*class="[^"]*\bt-paper\b')
+        self.assertContains(r, "hub_calendar/monet.webp")
+
+    def test_unknown_look_falls_back_to_glass(self):
+        self.broker.settings.update({("hub_calendar", "theme"): "neon",
+                                     ("hub_calendar", "default_view"): "year"})
+        r = self.client.get(reverse("hub_calendar"))
+        self.assertEqual((r.context["config"]["theme"], r.context["config"]["view"]), ("glass", "month"))
+        self.assertRegex(r.content.decode(), r'<body[^>]*class="[^"]*\bt-glass\b')
+
 
 def vevent(uid, start, *extra, rrule=False):
     lines = ["BEGIN:VEVENT", f"UID:{uid}", f"DTSTART:{start}T180000Z", f"SUMMARY:{uid}"]
