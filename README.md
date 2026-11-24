@@ -1,6 +1,6 @@
 # bdh-app-calendar
 
-A family calendar app for [Black Diamond Hub](https://github.com/blackdiamondlodge/BlackDiamondHub).
+A family calendar app for [Black Diamond Hub](https://github.com/blackdiamondhub/BlackDiamondHub).
 It merges any number of iCal subscriptions (school calendars, Google, iCloud …)
 with events added right on the hub.
 

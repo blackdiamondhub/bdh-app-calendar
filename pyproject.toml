@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.urls]
-Source = "https://github.com/blackdiamondlodge/bdh-app-calendar"
+Source = "https://github.com/blackdiamondhub/bdh-app-calendar"
 
 [project.entry-points."blackdiamondhub.plugins"]
 hub_calendar = "hub_calendar.plugin:spec"
