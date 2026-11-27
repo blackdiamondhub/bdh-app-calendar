@@ -35,7 +35,7 @@
         <span class="hc-av" style="background:{{ p.color }}">{{ p.initials }}</span>
         <div class="lbl"><input class="hst-in txt" name="name" value="{{ p.name }}" maxlength="60" required aria-label="Name"></div>
         <div class="ctl">
-            <button class="hst-btn ghost hc-del" name="action" value="delete" formnovalidate onclick="return confirm('Remove {{ p.name|escapejs }}? Events stay, just untagged.')">Remove</button>
+            <button class="hst-btn ghost hc-del" name="action" value="delete" formnovalidate data-bdh-confirm="Remove {{ p.name }}? Events stay, just untagged." data-bdh-confirm-ok="Remove">Remove</button>
             <button class="hst-btn" name="action" value="save">Save</button>
         </div>
         <div class="hc-sw">

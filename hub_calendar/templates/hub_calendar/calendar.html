@@ -1431,7 +1431,7 @@
       $('p-del').onclick = function () {
         hide('m-pop');
         withScope(e, 'Delete repeating event', function (scope) {
-          send(CFG.api + '/' + e.event + '/delete', { scope: scope, occ: e.occ }).then(function (r) { if (r.ok) load(); else alert(r.error || 'Couldn’t delete that event.'); });
+          send(CFG.api + '/' + e.event + '/delete', { scope: scope, occ: e.occ }).then(function (r) { if (r.ok) load(); else bdh.alert(r.error || 'Couldn’t delete that event.'); });
         });
       };
     }

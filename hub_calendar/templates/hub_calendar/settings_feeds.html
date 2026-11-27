@@ -103,7 +103,7 @@
     </div>
     {% endif %}
     <div class="hc-act">
-        <button class="hst-btn ghost del" name="action" value="delete" formnovalidate onclick="return confirm('Remove {{ f.name|escapejs }}?')">Remove</button>
+        <button class="hst-btn ghost del" name="action" value="delete" formnovalidate data-bdh-confirm="Remove {{ f.name }}?" data-bdh-confirm-ok="Remove">Remove</button>
         <button class="hst-btn ghost" name="action" value="refresh" formnovalidate>Refresh now</button>
         <button class="hst-btn" name="action" value="save">Save</button>
     </div>
